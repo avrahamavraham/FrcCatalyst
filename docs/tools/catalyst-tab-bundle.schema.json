@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://frccatalyst.github.io/FrcCatalyst/tools/catalyst-tab-bundle.schema.json",
+  "title": "Catalyst Tab Bundle",
+  "description": "Portable description of one or more dashboard tabs (AdvantageScope, Elastic, Shuffleboard, Glass) for a Catalyst mechanism. The bundle is intentionally tool-agnostic: it lists NT field paths and the visual shape teams should use. Each dashboard has its own native layout format; this bundle is the source of truth users translate into that.",
+  "type": "object",
+  "required": ["catalystVersion", "mechanism", "tabs"],
+  "properties": {
+    "catalystVersion": {
+      "type": "string",
+      "description": "The Catalyst release this bundle was authored against."
+    },
+    "mechanism": {
+      "type": "string",
+      "description": "Catalyst mechanism class name this bundle targets."
+    },
+    "description": { "type": "string" },
+    "placeholders": {
+      "type": "object",
+      "description": "Tokens (wrapped in curly braces in keys) that the user must substitute before importing. The most common is {MECH} — the per-instance mechanism name from the Config builder.",
+      "additionalProperties": { "type": "string" }
+    },
+    "tabs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["title", "type"],
+        "properties": {
+          "title": { "type": "string" },
+          "type": {
+            "type": "string",
+            "enum": ["LineGraph", "Table", "Console", "OdometryField", "Mechanism3D", "Documentation"]
+          },
+          "notes": { "type": "string" },
+          "axes": {
+            "type": "object",
+            "properties": {
+              "left":  { "$ref": "#/$defs/axis" },
+              "right": { "$ref": "#/$defs/axis" }
+            }
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                { "type": "string" },
+                {
+                  "type": "object",
+                  "required": ["key"],
+                  "properties": {
+                    "key": { "type": "string" },
+                    "color": { "type": "string" },
+                    "style": { "type": "string", "enum": ["solid", "dashed", "dotted"] }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "axis": {
+      "type": "object",
+      "required": ["fields"],
+      "properties": {
+        "unit": { "type": "string" },
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["key"],
+            "properties": {
+              "key": { "type": "string" },
+              "color": { "type": "string" },
+              "style": { "type": "string", "enum": ["solid", "dashed", "dotted"] }
+            }
+          }
+        }
+      }
+    }
+  }
+}

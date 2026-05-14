@@ -1,0 +1,580 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Catalyst Health</title>
+<style>
+  :root {
+    --bg-0: #1a1a2e;
+    --bg-1: #16213e;
+    --bg-card: #1f2a44;
+    --bg-input: #0e1626;
+    --accent: #e94560;
+    --fg: #ffffff;
+    --fg-muted: #8892b0;
+    --fg-dim: #5a6478;
+    --ok: #4ade80;
+    --warn: #fbbf24;
+    --err: #f87171;
+    --info: #60a5fa;
+    --border: #2a3a5c;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: linear-gradient(135deg, var(--bg-0), var(--bg-1));
+    color: var(--fg);
+    min-height: 100vh;
+  }
+
+  header {
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(15, 26, 46, 0.7);
+    backdrop-filter: blur(8px);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand svg { width: 28px; height: 28px; }
+  .brand-title { font-weight: 900; font-size: 20px; letter-spacing: 2px; }
+  .brand-sub { font-size: 12px; color: var(--accent); margin-left: 6px; }
+
+  .conn { display: flex; gap: 8px; align-items: center; margin-left: auto; }
+  .conn input[type="text"] {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    color: var(--fg);
+    padding: 8px 12px;
+    border-radius: 6px;
+    width: 200px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 13px;
+  }
+  .conn input[type="text"]:focus { outline: none; border-color: var(--accent); }
+  button {
+    background: var(--accent);
+    color: white;
+    border: 0;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  button.secondary { background: var(--bg-card); color: var(--fg-muted); border: 1px solid var(--border); }
+  button.secondary.active { color: var(--fg); border-color: var(--accent); }
+  .status { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--fg-muted); margin-right: 4px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--fg-dim); }
+  .dot.connecting { background: var(--warn); animation: pulse 1s ease-in-out infinite; }
+  .dot.connected { background: var(--ok); }
+  .dot.error { background: var(--err); }
+  @keyframes pulse { 50% { opacity: 0.3; } }
+
+  main { padding: 24px 32px 80px; }
+
+  .summary {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .summary-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+  }
+  .summary-card.big {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .summary-card .label { font-size: 11px; color: var(--fg-muted); text-transform: uppercase; letter-spacing: 1.5px; }
+  .summary-card .value { font-size: 28px; font-weight: 900; margin-top: 4px; }
+  .summary-card.err { border-color: var(--err); }
+  .summary-card.warn { border-color: var(--warn); }
+  .summary-card.info { border-color: var(--info); }
+  .summary-card .value.err { color: var(--err); }
+  .summary-card .value.warn { color: var(--warn); }
+  .summary-card .value.info { color: var(--info); }
+  .summary-card .value.ok { color: var(--ok); font-size: 22px; }
+
+  .toolbar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    align-items: center;
+  }
+  .toolbar input[type=text] {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    color: var(--fg);
+    padding: 7px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    width: 200px;
+  }
+  .toolbar input[type=text]:focus { outline: none; border-color: var(--accent); }
+
+  .subsystems {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+    gap: 16px;
+  }
+  .subsystem {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .subsystem-head {
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .subsystem-name { font-weight: 700; font-size: 14px; }
+  .subsystem-status { font-size: 11px; padding: 3px 8px; border-radius: 999px; font-weight: 700; letter-spacing: 0.5px; }
+  .subsystem-status.ok { background: rgba(74, 222, 128, 0.15); color: var(--ok); }
+  .subsystem-status.warn { background: rgba(251, 191, 36, 0.15); color: var(--warn); }
+  .subsystem-status.err { background: rgba(248, 113, 113, 0.15); color: var(--err); }
+
+  .checks { padding: 4px 0; }
+  .check {
+    padding: 10px 18px;
+    display: grid;
+    grid-template-columns: 12px 1fr auto;
+    gap: 12px;
+    align-items: center;
+    border-top: 1px solid rgba(255,255,255,0.04);
+  }
+  .check:first-child { border-top: 0; }
+  .check.firing { background: rgba(0,0,0,0.15); }
+  .check-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--fg-dim); align-self: center; }
+  .check-dot.ok { background: var(--ok); opacity: 0.4; }
+  .check-dot.warn { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
+  .check-dot.err { background: var(--err); box-shadow: 0 0 10px var(--err); animation: pulseFire 1.5s ease-in-out infinite; }
+  .check-dot.info { background: var(--info); }
+  @keyframes pulseFire { 50% { opacity: 0.5; } }
+
+  .check-id { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px; font-weight: 600; }
+  .check-desc { font-size: 12px; color: var(--fg-muted); margin-top: 2px; }
+  .check.firing .check-id { color: var(--warn); }
+  .check.firing.err .check-id { color: var(--err); }
+
+  .check-detail {
+    text-align: right;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 12px;
+    color: var(--fg);
+  }
+  .check-fired {
+    font-size: 11px;
+    color: var(--fg-dim);
+    margin-top: 2px;
+  }
+
+  .empty {
+    text-align: center;
+    color: var(--fg-muted);
+    padding: 80px 20px;
+    font-size: 15px;
+  }
+  .empty .big-ok {
+    font-size: 64px;
+    color: var(--ok);
+    line-height: 1;
+    margin-bottom: 16px;
+  }
+
+  footer {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    padding: 10px 32px;
+    background: rgba(15, 26, 46, 0.95);
+    backdrop-filter: blur(8px);
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    font-size: 12px;
+    color: var(--fg-muted);
+  }
+  footer .right { margin-left: auto; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <svg viewBox="0 0 100 100">
+      <path d="M55,10 L35,52 L52,48 L42,90 L70,40 L52,44 L62,10 Z" fill="#e94560"/>
+    </svg>
+    <div>
+      <span class="brand-title">CATALYST</span>
+      <span class="brand-sub">Health</span>
+    </div>
+  </div>
+  <div class="conn">
+    <span class="status"><span class="dot" id="dot"></span><span id="statusText">disconnected</span></span>
+    <input type="text" id="host" placeholder="10.TE.AM.2 or roborio-####-frc.local" value="127.0.0.1" />
+    <button id="connectBtn">Connect</button>
+  </div>
+</header>
+
+<main>
+
+  <div class="summary">
+    <div class="summary-card big" id="overallCard">
+      <div class="label">Overall</div>
+      <div class="value ok" id="overallValue">—</div>
+    </div>
+    <div class="summary-card err">
+      <div class="label">Errors</div>
+      <div class="value err" id="errorCount">0</div>
+    </div>
+    <div class="summary-card warn">
+      <div class="label">Warnings</div>
+      <div class="value warn" id="warnCount">0</div>
+    </div>
+    <div class="summary-card info">
+      <div class="label">Info</div>
+      <div class="value info" id="infoCount">0</div>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <button class="secondary active" data-filter="all">All</button>
+    <button class="secondary" data-filter="firing">Firing only</button>
+    <button class="secondary" data-filter="errors">Errors only</button>
+    <input type="text" id="search" placeholder="filter by name…" />
+  </div>
+
+  <div id="empty" class="empty">
+    <div>Connect to a robot to see live health status.</div>
+  </div>
+  <div id="subsystems" class="subsystems"></div>
+</main>
+
+<footer>
+  <span>Subscribed to <code>Catalyst/Health/</code></span>
+  <span class="right" id="latency">—</span>
+</footer>
+
+<script type="module">
+import { encode, decodeMulti } from 'https://esm.sh/@msgpack/msgpack@3.0.0-beta2';
+
+// ---- Minimal NT4 client (read-only flavor) ----
+
+class NT4 {
+  constructor() {
+    this.ws = null;
+    this.connected = false;
+    this.nextSubUid = 1;
+    this.topics = new Map();    // id -> {name, type}
+    this.byName = new Map();    // name -> {topicId, type, value}
+    this.handlers = { announce: () => {}, value: () => {}, status: () => {} };
+  }
+  connect(host, port = 5810, clientName = 'catalyst-health') {
+    if (this.ws) this.ws.close();
+    const url = `ws://${host}:${port}/nt/${clientName}-${(Math.random()*1e6)|0}`;
+    this.handlers.status('connecting', url);
+    try {
+      this.ws = new WebSocket(url, 'networktables.first.wpi.edu.v4.1');
+    } catch (e) { this.handlers.status('error', e.message); return; }
+    this.ws.binaryType = 'arraybuffer';
+    this.ws.addEventListener('open', () => {
+      this.connected = true;
+      this.handlers.status('connected', url);
+      this._send({
+        method: 'subscribe',
+        params: {
+          topics: ['Catalyst/Health/'],
+          subuid: this.nextSubUid++,
+          options: { prefix: true, all: true },
+        },
+      });
+    });
+    this.ws.addEventListener('close', () => {
+      this.connected = false;
+      this.handlers.status('disconnected');
+      this.topics.clear();
+      this.byName.clear();
+    });
+    this.ws.addEventListener('error', () => this.handlers.status('error', 'websocket error'));
+    this.ws.addEventListener('message', (ev) => this._onMessage(ev));
+  }
+  disconnect() { if (this.ws) this.ws.close(); this.ws = null; }
+  _send(obj) { if (this.ws && this.ws.readyState === 1) this.ws.send(JSON.stringify([obj])); }
+  _onMessage(ev) {
+    if (typeof ev.data === 'string') {
+      let msgs; try { msgs = JSON.parse(ev.data); } catch { return; }
+      if (!Array.isArray(msgs)) msgs = [msgs];
+      for (const m of msgs) {
+        if (m.method === 'announce') {
+          const { name, id, type } = m.params;
+          this.topics.set(id, { name, type });
+          this.byName.set(name, { topicId: id, type });
+          this.handlers.announce(name, type);
+        } else if (m.method === 'unannounce') {
+          this.topics.delete(m.params.id);
+          this.byName.delete(m.params.name);
+        }
+      }
+    } else {
+      try {
+        for (const value of decodeMulti(new Uint8Array(ev.data))) {
+          if (!Array.isArray(value) || value.length < 4) continue;
+          const [id, ts, type, payload] = value;
+          if (id < 0) continue;
+          const topic = this.topics.get(id);
+          if (!topic) continue;
+          this.byName.get(topic.name).value = payload;
+          this.handlers.value(topic.name, payload, ts, type);
+        }
+      } catch {}
+    }
+  }
+}
+
+// ---- UI state ----
+
+const nt = new NT4();
+const $ = (id) => document.getElementById(id);
+
+const state = {
+  // subsystem -> Map<checkId, {description, severity, firing, detail, firedAt}>
+  subsystems: new Map(),
+  errorCount: 0,
+  warnCount: 0,
+  infoCount: 0,
+  healthy: true,
+  lastUpdate: 0,
+  filter: 'all',
+  search: '',
+};
+
+function parseHealthKey(fullName) {
+  const prefix = 'Catalyst/Health/';
+  if (!fullName.startsWith(prefix)) return null;
+  const rest = fullName.slice(prefix.length);
+  if (rest === 'ErrorCount' || rest === 'WarnCount' || rest === 'InfoCount' || rest === 'Healthy') {
+    return { summary: rest };
+  }
+  const parts = rest.split('/');
+  if (parts.length === 3) {
+    return { subsystem: parts[0], id: parts[1], field: parts[2] };
+  }
+  return null;
+}
+
+function ensureCheck(sub, id) {
+  let m = state.subsystems.get(sub);
+  if (!m) { m = new Map(); state.subsystems.set(sub, m); }
+  let c = m.get(id);
+  if (!c) {
+    c = { description: '', severity: 'INFO', firing: false, detail: '', firedAt: 0 };
+    m.set(id, c);
+  }
+  return c;
+}
+
+function onValue(name, value) {
+  const parsed = parseHealthKey(name);
+  if (!parsed) return;
+  if (parsed.summary) {
+    if (parsed.summary === 'ErrorCount') state.errorCount = value;
+    else if (parsed.summary === 'WarnCount') state.warnCount = value;
+    else if (parsed.summary === 'InfoCount') state.infoCount = value;
+    else if (parsed.summary === 'Healthy') state.healthy = value;
+    state.lastUpdate = Date.now();
+    render();
+    return;
+  }
+  const c = ensureCheck(parsed.subsystem, parsed.id);
+  if (parsed.field === 'description') c.description = value;
+  else if (parsed.field === 'severity') c.severity = value;
+  else if (parsed.field === 'firing') c.firing = value;
+  else if (parsed.field === 'detail') c.detail = value;
+  else if (parsed.field === 'firedAt') c.firedAt = value;
+  state.lastUpdate = Date.now();
+  render();
+}
+
+function setStatus(kind, detail) {
+  const dot = $('dot');
+  const txt = $('statusText');
+  dot.classList.remove('connecting', 'connected', 'error');
+  if (kind === 'connecting') { dot.classList.add('connecting'); txt.textContent = 'connecting…'; }
+  else if (kind === 'connected') { dot.classList.add('connected'); txt.textContent = 'connected'; $('connectBtn').textContent = 'Disconnect'; }
+  else if (kind === 'error') { dot.classList.add('error'); txt.textContent = detail || 'error'; $('connectBtn').textContent = 'Connect'; }
+  else { txt.textContent = 'disconnected'; $('connectBtn').textContent = 'Connect'; }
+}
+
+nt.handlers.value = onValue;
+nt.handlers.status = setStatus;
+
+// ---- Rendering ----
+
+let renderRequested = false;
+function render() {
+  if (renderRequested) return;
+  renderRequested = true;
+  requestAnimationFrame(doRender);
+}
+
+function severityRank(sev, firing) {
+  if (!firing) return 0;
+  return sev === 'ERROR' ? 3 : sev === 'WARN' ? 2 : 1;
+}
+
+function subsystemStatus(checks) {
+  let worst = 0;
+  for (const c of checks.values()) {
+    if (!c.firing) continue;
+    const r = severityRank(c.severity, true);
+    if (r > worst) worst = r;
+  }
+  return worst === 3 ? 'err' : worst === 2 ? 'warn' : worst === 1 ? 'info' : 'ok';
+}
+
+function doRender() {
+  renderRequested = false;
+  $('errorCount').textContent = state.errorCount;
+  $('warnCount').textContent = state.warnCount;
+  $('infoCount').textContent = state.infoCount;
+
+  const oc = $('overallCard');
+  const ov = $('overallValue');
+  oc.classList.remove('err', 'warn', 'info');
+  ov.classList.remove('err', 'warn', 'info', 'ok');
+  if (state.errorCount > 0) {
+    oc.classList.add('err'); ov.classList.add('err');
+    ov.textContent = state.errorCount === 1 ? '1 ERROR' : `${state.errorCount} ERRORS`;
+  } else if (state.warnCount > 0) {
+    oc.classList.add('warn'); ov.classList.add('warn');
+    ov.textContent = state.warnCount === 1 ? '1 WARNING' : `${state.warnCount} WARNINGS`;
+  } else if (state.subsystems.size > 0) {
+    ov.classList.add('ok');
+    ov.textContent = 'ALL GREEN';
+  } else {
+    ov.classList.add('ok');
+    ov.textContent = '—';
+  }
+
+  const container = $('subsystems');
+  const empty = $('empty');
+  const names = [...state.subsystems.keys()].sort();
+  if (names.length === 0) {
+    container.innerHTML = '';
+    empty.style.display = '';
+    return;
+  }
+  empty.style.display = 'none';
+
+  const search = state.search.trim().toLowerCase();
+  const filter = state.filter;
+
+  const html = names.map((subName) => {
+    const checks = state.subsystems.get(subName);
+    let entries = [...checks.entries()];
+    entries.sort((a, b) => {
+      const fa = severityRank(a[1].severity, a[1].firing);
+      const fb = severityRank(b[1].severity, b[1].firing);
+      if (fa !== fb) return fb - fa;
+      return a[0].localeCompare(b[0]);
+    });
+
+    if (filter === 'firing') entries = entries.filter(([_, c]) => c.firing);
+    else if (filter === 'errors') entries = entries.filter(([_, c]) => c.firing && c.severity === 'ERROR');
+    if (search) entries = entries.filter(([id, c]) =>
+      id.toLowerCase().includes(search) ||
+      (c.description || '').toLowerCase().includes(search) ||
+      subName.toLowerCase().includes(search));
+
+    if (entries.length === 0) return '';
+
+    const status = subsystemStatus(checks);
+    const rows = entries.map(([id, c]) => {
+      const cls = c.firing ? 'firing ' + (c.severity === 'ERROR' ? 'err' : c.severity === 'WARN' ? 'warn' : 'info') : '';
+      const dotCls = c.firing
+        ? (c.severity === 'ERROR' ? 'err' : c.severity === 'WARN' ? 'warn' : 'info')
+        : 'ok';
+      const fired = c.firing && c.firedAt > 0 ? `<div class="check-fired">${formatRel(c.firedAt)}</div>` : '';
+      return `
+        <div class="check ${cls}">
+          <div class="check-dot ${dotCls}"></div>
+          <div>
+            <div class="check-id">${id}</div>
+            <div class="check-desc">${c.description || ''}</div>
+          </div>
+          <div>
+            <div class="check-detail">${c.firing ? (c.detail || '') : ''}</div>
+            ${fired}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div class="subsystem">
+        <div class="subsystem-head">
+          <div class="subsystem-name">${subName}</div>
+          <div class="subsystem-status ${status}">${status === 'ok' ? 'HEALTHY' : status.toUpperCase()}</div>
+        </div>
+        <div class="checks">${rows}</div>
+      </div>
+    `;
+  }).filter(Boolean).join('');
+
+  container.innerHTML = html;
+}
+
+function formatRel(firedAtSec) {
+  if (firedAtSec <= 0) return '';
+  const ageSec = Math.max(0, performance.now() / 1000 - firedAtSec);
+  if (ageSec < 60) return `${ageSec.toFixed(0)}s ago`;
+  if (ageSec < 3600) return `${(ageSec / 60).toFixed(0)}m ago`;
+  return `${(ageSec / 3600).toFixed(1)}h ago`;
+}
+
+// ---- Events ----
+
+$('connectBtn').addEventListener('click', () => {
+  if (nt.connected) {
+    nt.disconnect();
+    state.subsystems.clear();
+    render();
+    return;
+  }
+  const host = $('host').value.trim() || '127.0.0.1';
+  nt.connect(host);
+});
+$('host').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('connectBtn').click(); });
+document.querySelectorAll('.toolbar [data-filter]').forEach((b) => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.toolbar [data-filter]').forEach((x) => x.classList.remove('active'));
+    b.classList.add('active');
+    state.filter = b.dataset.filter;
+    render();
+  });
+});
+$('search').addEventListener('input', (e) => { state.search = e.target.value; render(); });
+
+setInterval(() => {
+  const el = $('latency');
+  if (!nt.connected) { el.textContent = '—'; return; }
+  const age = state.lastUpdate ? Date.now() - state.lastUpdate : null;
+  el.textContent = age === null ? 'waiting…' : `last update ${age < 1000 ? age + 'ms' : (age / 1000).toFixed(1) + 's'} ago`;
+}, 500);
+</script>
+</body>
+</html>

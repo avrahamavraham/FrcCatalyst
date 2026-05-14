@@ -226,17 +226,41 @@ public final class CatalystMath {
     //              COMMON FRC CONSTANTS
     // ==========================================
 
-    /** Kraken X60 stall torque in Nm. */
+    /** Kraken X60 (non-FOC) stall torque in Nm. For FOC use {@link #KRAKEN_X60_FOC_STALL_TORQUE}. */
     public static final double KRAKEN_STALL_TORQUE = 7.09;
 
-    /** Kraken X60 free speed in RPM. */
+    /** Kraken X60 (non-FOC) free speed in RPM. */
     public static final double KRAKEN_FREE_SPEED_RPM = 6000;
 
-    /** Falcon 500 stall torque in Nm. */
+    /** Kraken X60 with FOC stall torque in Nm. */
+    public static final double KRAKEN_X60_FOC_STALL_TORQUE = 9.37;
+
+    /** Kraken X60 with FOC free speed in RPM. */
+    public static final double KRAKEN_X60_FOC_FREE_SPEED_RPM = 5800;
+
+    /** Kraken X44 (non-FOC) stall torque in Nm. */
+    public static final double KRAKEN_X44_STALL_TORQUE = 4.05;
+
+    /** Kraken X44 (non-FOC) free speed in RPM. */
+    public static final double KRAKEN_X44_FREE_SPEED_RPM = 7530;
+
+    /** Kraken X44 with FOC stall torque in Nm. */
+    public static final double KRAKEN_X44_FOC_STALL_TORQUE = 5.45;
+
+    /** Kraken X44 with FOC free speed in RPM. */
+    public static final double KRAKEN_X44_FOC_FREE_SPEED_RPM = 7200;
+
+    /** Falcon 500 (non-FOC) stall torque in Nm. */
     public static final double FALCON_STALL_TORQUE = 4.69;
 
-    /** Falcon 500 free speed in RPM. */
+    /** Falcon 500 (non-FOC) free speed in RPM. */
     public static final double FALCON_FREE_SPEED_RPM = 6380;
+
+    /** Falcon 500 with FOC stall torque in Nm. */
+    public static final double FALCON_FOC_STALL_TORQUE = 5.84;
+
+    /** Falcon 500 with FOC free speed in RPM. */
+    public static final double FALCON_FOC_FREE_SPEED_RPM = 6080;
 
     /** Standard FRC field length in meters (2025+). */
     public static final double FIELD_LENGTH = 16.54;

@@ -9,6 +9,8 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.lib.catalyst.hardware.CatalystMotor;
 import frc.lib.catalyst.hardware.MotorType;
 import frc.lib.catalyst.io.FlywheelMechanismInputs;
+import frc.lib.catalyst.util.HealthCheck;
+import frc.lib.catalyst.util.HealthMonitor;
 import frc.lib.catalyst.util.TunableGains;
 
 /**
@@ -116,6 +118,27 @@ public class FlywheelMechanism extends CatalystMechanism {
                         motorModel);
             }
         }
+
+        registerHealthChecks();
+    }
+
+    private void registerHealthChecks() {
+        HealthMonitor.standardMotorChecks(name, primaryMotor, config.statorCurrentLimit, 70);
+        if (secondaryMotor != null) {
+            HealthMonitor.standardMotorChecks(name, "Sec", secondaryMotor, config.statorCurrentLimit, 70);
+        }
+
+        HealthCheck.builder(name, "NotSpinningUp")
+                .severity(HealthCheck.Severity.WARN)
+                .description("Commanded a non-zero setpoint but flywheel is not spinning up")
+                .when(() -> primarySetpointRPS > 1.0
+                        && Math.abs(primaryMotor.getVelocity()) < 1.0
+                        && Math.abs(primaryMotor.getAppliedVoltage()) > 2.0)
+                .detail(() -> String.format("setpoint %.1f rps, actual %.1f rps",
+                        primarySetpointRPS, primaryMotor.getVelocity()))
+                .debounce(1.0)
+                .clearAfter(0.5)
+                .register();
     }
 
     // --- Getters ---
@@ -268,6 +291,8 @@ public class FlywheelMechanism extends CatalystMechanism {
             log("SecondaryVelocityRPS", inputs.secondaryVelocityRPS);
             log("SecondarySetpointRPS", inputs.secondarySetpointRPS);
         }
+
+        HealthMonitor.getInstance().update();
     }
 
     @Override

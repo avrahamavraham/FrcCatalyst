@@ -14,8 +14,9 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.lib.catalyst.hardware.CatalystMotor;
 import frc.lib.catalyst.hardware.MotorType;
 import frc.lib.catalyst.io.LinearMechanismInputs;
-import frc.lib.catalyst.util.AlertManager;
 import frc.lib.catalyst.util.FeedforwardGains;
+import frc.lib.catalyst.util.HealthCheck;
+import frc.lib.catalyst.util.HealthMonitor;
 import frc.lib.catalyst.util.TunableGains;
 
 import java.util.HashMap;
@@ -82,9 +83,6 @@ public class LinearMechanism extends CatalystMechanism {
     // Catalyst/Tuning/<name>/... and re-applies on change. Disabled globally
     // via TunableNumber.disableTuning() for competition builds.
     private final TunableGains tunableGains;
-
-    // Fault monitoring
-    private int consecutiveHighTempCycles = 0;
 
     public LinearMechanism(Config config) {
         super(config.name);
@@ -174,6 +172,31 @@ public class LinearMechanism extends CatalystMechanism {
                     true,
                     config.minPosition);
         }
+
+        registerHealthChecks();
+    }
+
+    private void registerHealthChecks() {
+        HealthMonitor.standardMotorChecks(name, motor, config.statorCurrentLimit, config.maxTemperatureC);
+
+        HealthCheck.builder(name, "Stall")
+                .severity(HealthCheck.Severity.WARN)
+                .description("Output applied but mechanism not moving")
+                .when(() -> Math.abs(motor.getAppliedVoltage()) > 3.0
+                        && Math.abs(getVelocity()) < 0.005
+                        && Math.abs(getPosition() - setpointMeters) > config.positionToleranceMeters * 4)
+                .detail(() -> String.format("%.1fV out, %.3fm/s", motor.getAppliedVoltage(), getVelocity()))
+                .debounce(0.75)
+                .clearAfter(0.25)
+                .register();
+
+        HealthCheck.builder(name, "NotZeroed")
+                .severity(HealthCheck.Severity.INFO)
+                .description("Mechanism has not been zeroed since boot")
+                .when(() -> !hasBeenZeroed)
+                .debounce(2.0)
+                .clearAfter(0.0)
+                .register();
     }
 
     // --- Position Conversions ---
@@ -497,26 +520,7 @@ public class LinearMechanism extends CatalystMechanism {
             hasBeenZeroed = true;
         }
 
-        // Fault detection
-        checkFaults();
-    }
-
-    private void checkFaults() {
-        AlertManager alerts = AlertManager.getInstance();
-        double temp = motor.getTemperature();
-        if (temp > config.maxTemperatureC) {
-            consecutiveHighTempCycles++;
-            if (consecutiveHighTempCycles > 50) { // ~1 second
-                alerts.warning(name, "Motor temperature high: " + String.format("%.0f", temp) + "C");
-                // Safety cutoff: zero output to let motor cool down
-                if (temp > config.maxTemperatureC + 10) {
-                    motor.stop();
-                    alerts.error(name, "Motor OVERTEMP cutoff at " + String.format("%.0f", temp) + "C!");
-                }
-            }
-        } else {
-            consecutiveHighTempCycles = 0;
-        }
+        HealthMonitor.getInstance().update();
     }
 
     @Override

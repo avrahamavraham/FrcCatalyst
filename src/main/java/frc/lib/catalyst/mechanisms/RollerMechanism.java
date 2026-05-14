@@ -7,6 +7,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.lib.catalyst.hardware.CatalystMotor;
 import frc.lib.catalyst.io.RollerMechanismInputs;
+import frc.lib.catalyst.util.HealthMonitor;
 
 /**
  * Generic roller mechanism. Use for intakes, conveyors, indexers,
@@ -63,6 +64,8 @@ public class RollerMechanism extends CatalystMechanism {
         } else {
             beamBreak = null;
         }
+
+        HealthMonitor.standardMotorChecks(name, motor, config.statorCurrentLimit, 70);
     }
 
     // --- Getters ---
@@ -274,6 +277,8 @@ public class RollerMechanism extends CatalystMechanism {
         log("CurrentAmps", inputs.statorCurrentAmps);
         log("HasPiece", inputs.hasPiece);
         log("MotorRotations", inputs.motorRotations);
+
+        HealthMonitor.getInstance().update();
     }
 
     /** Get the underlying motor for advanced use. */

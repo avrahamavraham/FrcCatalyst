@@ -6,6 +6,8 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.lib.catalyst.hardware.CatalystMotor;
 import frc.lib.catalyst.io.ClawMechanismInputs;
+import frc.lib.catalyst.util.HealthCheck;
+import frc.lib.catalyst.util.HealthMonitor;
 
 /**
  * Motor-driven claw / gripper mechanism.
@@ -67,6 +69,42 @@ public class ClawMechanism extends CatalystMechanism {
         this.motor = motorBuilder.build();
 
         this.beamBreak = config.beamBreakPort >= 0 ? new DigitalInput(config.beamBreakPort) : null;
+
+        HealthMonitor.standardMotorChecks(name, motor, config.statorCurrentLimit, 70);
+
+        // Phoenix follower (no separate CatalystMotor wrapper) — register
+        // basic current/temp checks against the follower telemetry arrays.
+        if (config.followerCanId >= 0) {
+            final double warnAmps = config.statorCurrentLimit * 0.9;
+            HealthCheck.builder(name, "OverCurrentFollower")
+                    .severity(HealthCheck.Severity.WARN)
+                    .description("Follower stator current near limit")
+                    .when(() -> {
+                        double[] cs = motor.getFollowerStatorCurrents();
+                        return cs.length > 0 && cs[0] > warnAmps;
+                    })
+                    .detail(() -> {
+                        double[] cs = motor.getFollowerStatorCurrents();
+                        return cs.length > 0 ? String.format("%.1f A", cs[0]) : "";
+                    })
+                    .debounce(0.5)
+                    .clearAfter(1.0)
+                    .register();
+            HealthCheck.builder(name, "HighTempFollower")
+                    .severity(HealthCheck.Severity.WARN)
+                    .description("Follower temperature high")
+                    .when(() -> {
+                        double[] ts = motor.getFollowerTemperatures();
+                        return ts.length > 0 && ts[0] > 70;
+                    })
+                    .detail(() -> {
+                        double[] ts = motor.getFollowerTemperatures();
+                        return ts.length > 0 ? String.format("%.0f C", ts[0]) : "";
+                    })
+                    .debounce(1.0)
+                    .clearAfter(5.0)
+                    .register();
+        }
     }
 
     // --- Getters ---
@@ -239,6 +277,8 @@ public class ClawMechanism extends CatalystMechanism {
         log("GripState", inputs.gripState);
         log("HasPiece", inputs.hasPiece);
         log("CurrentAmps", inputs.statorCurrentAmps);
+
+        HealthMonitor.getInstance().update();
     }
 
     /** Get the underlying motor for advanced use. */

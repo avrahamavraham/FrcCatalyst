@@ -49,7 +49,7 @@ repositories {
 }
 
 dependencies {
-    implementation "com.github.TomAs-1226:FrcCatalyst:v0.3.2-beta"
+    implementation "com.github.TomAs-1226:FrcCatalyst:v0.3.3-beta"
 }
 ```
 
@@ -88,6 +88,15 @@ operatorController.b().onTrue(elevator.goTo("STOW"));
 ```
 
 ---
+
+## What's New in v0.3.3-beta
+
+> ⚠️ **Important fix — read if you used `MotorType.KRAKEN_X60_FOC` or `MotorType.FALCON_500_FOC` in earlier 0.3.x versions.** Those two presets shipped with the same stall torque as their non-FOC counterparts; Phoenix-6 FOC actually delivers ~30% more. `holdingVoltage(...)` was over-stated and sim torque under-stated by the same factor, so re-check hand-tuned `kG` values after upgrading. Details in [CHANGELOG.md](CHANGELOG.md).
+
+- **Health Kit** — `frc.lib.catalyst.util.HealthCheck` + `HealthMonitor` give every mechanism a debounced fault layer with INFO/WARN/ERROR severities, live detail strings, and per-edge fire/clear hooks. Every built-in mechanism wires standard motor checks (over-current, high-temp, over-temp cutoff that auto-stops the motor) plus a few mechanism-specific ones (stall, not-zeroed, not-spinning-up, low-pressure). State publishes to `Catalyst/Health/...` on NT and forwards through the existing `AlertManager`.
+- **Health Dashboard** — `docs/tools/health/index.html`, a single-file web viewer that connects to NT4 read-only, shows per-subsystem cards with severity-colored firing checks, filter buttons, and search. Pairs with the existing Tuner UI.
+- **Kraken X44 presets** + a public `MotorType` constructor so teams using NEO, Minion, or any other motor can declare their own: `new MotorType("NEO 550", 0.97, 11000, 100, 1.4)`.
+- **Teams can add their own health checks in one fluent call**: `HealthCheck.builder("Climber", "RopeSlack").severity(WARN).when(() -> ...).debounce(0.5).register();`
 
 ## What's New in v0.3.2-beta
 

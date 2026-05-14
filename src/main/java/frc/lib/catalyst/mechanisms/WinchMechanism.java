@@ -5,6 +5,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.lib.catalyst.hardware.CatalystMotor;
 import frc.lib.catalyst.io.WinchMechanismInputs;
+import frc.lib.catalyst.util.HealthMonitor;
 
 import java.util.function.DoubleSupplier;
 
@@ -74,6 +75,11 @@ public class WinchMechanism extends CatalystMechanism {
                     .build();
         } else {
             this.secondMotor = null;
+        }
+
+        HealthMonitor.standardMotorChecks(name, motor, config.statorCurrentLimit, 70);
+        if (secondMotor != null) {
+            HealthMonitor.standardMotorChecks(name, "Sec", secondMotor, config.statorCurrentLimit, 70);
         }
     }
 
@@ -225,6 +231,8 @@ public class WinchMechanism extends CatalystMechanism {
         log("CurrentAmps", inputs.statorCurrentAmps);
         log("FullyExtended", isFullyExtended());
         log("FullyRetracted", isFullyRetracted());
+
+        HealthMonitor.getInstance().update();
     }
 
     public CatalystMotor getMotor() { return motor; }

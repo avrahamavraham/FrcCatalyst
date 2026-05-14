@@ -13,8 +13,9 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.lib.catalyst.hardware.CatalystMotor;
 import frc.lib.catalyst.hardware.MotorType;
 import frc.lib.catalyst.io.RotationalMechanismInputs;
-import frc.lib.catalyst.util.AlertManager;
 import frc.lib.catalyst.util.FeedforwardGains;
+import frc.lib.catalyst.util.HealthCheck;
+import frc.lib.catalyst.util.HealthMonitor;
 import frc.lib.catalyst.util.TunableGains;
 
 import java.util.HashMap;
@@ -65,7 +66,6 @@ public class RotationalMechanism extends CatalystMechanism {
     // State
     private double setpointDegrees = 0;
     private boolean hasBeenZeroed = false;
-    private int consecutiveHighTempCycles = 0;
 
     private final RotationalMechanismInputs inputs = new RotationalMechanismInputs();
 
@@ -156,6 +156,23 @@ public class RotationalMechanism extends CatalystMechanism {
                     true,
                     Math.toRadians(config.minAngle));
         }
+
+        registerHealthChecks();
+    }
+
+    private void registerHealthChecks() {
+        HealthMonitor.standardMotorChecks(name, motor, config.statorCurrentLimit, config.maxTemperatureC);
+
+        HealthCheck.builder(name, "Stall")
+                .severity(HealthCheck.Severity.WARN)
+                .description("Output applied but mechanism not moving")
+                .when(() -> Math.abs(motor.getAppliedVoltage()) > 3.0
+                        && Math.abs(getAngularVelocity()) < 0.5
+                        && Math.abs(getAngle() - setpointDegrees) > config.toleranceDegrees * 4)
+                .detail(() -> String.format("%.1fV, %.2f deg/s", motor.getAppliedVoltage(), getAngularVelocity()))
+                .debounce(0.75)
+                .clearAfter(0.25)
+                .register();
     }
 
     // --- Conversions ---
@@ -444,22 +461,7 @@ public class RotationalMechanism extends CatalystMechanism {
             hasBeenZeroed = true;
         }
 
-        // Fault detection with temperature cutoff
-        double temp = motor.getTemperature();
-        if (temp > config.maxTemperatureC) {
-            consecutiveHighTempCycles++;
-            if (consecutiveHighTempCycles > 50) {
-                AlertManager.getInstance().warning(name,
-                        "Motor temperature high: " + String.format("%.0f", temp) + "C");
-                if (temp > config.maxTemperatureC + 10) {
-                    motor.stop();
-                    AlertManager.getInstance().error(name,
-                            "Motor OVERTEMP cutoff at " + String.format("%.0f", temp) + "C!");
-                }
-            }
-        } else {
-            consecutiveHighTempCycles = 0;
-        }
+        HealthMonitor.getInstance().update();
     }
 
     @Override

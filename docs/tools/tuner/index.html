@@ -1,0 +1,860 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Catalyst Tuner</title>
+<style>
+  :root {
+    --bg-0: #1a1a2e;
+    --bg-1: #16213e;
+    --bg-2: #0f1a2e;
+    --bg-card: #1f2a44;
+    --bg-input: #0e1626;
+    --accent: #e94560;
+    --accent-2: #ff6b6b;
+    --fg: #ffffff;
+    --fg-muted: #8892b0;
+    --fg-dim: #5a6478;
+    --ok: #4ade80;
+    --warn: #fbbf24;
+    --err: #f87171;
+    --border: #2a3a5c;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    background: linear-gradient(135deg, var(--bg-0), var(--bg-1));
+    color: var(--fg);
+    min-height: 100vh;
+  }
+
+  header {
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(15, 26, 46, 0.7);
+    backdrop-filter: blur(8px);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand svg { width: 28px; height: 28px; }
+  .brand-title { font-weight: 900; font-size: 20px; letter-spacing: 2px; }
+  .brand-sub { font-size: 12px; color: var(--accent); margin-left: 6px; }
+
+  .conn {
+    display: flex; gap: 8px; align-items: center; margin-left: auto;
+  }
+  .conn input[type="text"] {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    color: var(--fg);
+    padding: 8px 12px;
+    border-radius: 6px;
+    width: 200px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 13px;
+  }
+  .conn input[type="text"]:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  button {
+    background: var(--accent);
+    color: white;
+    border: 0;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background 120ms ease, transform 80ms ease;
+  }
+  button:hover { background: var(--accent-2); }
+  button:active { transform: translateY(1px); }
+  button.secondary { background: var(--bg-card); color: var(--fg-muted); border: 1px solid var(--border); }
+  button.secondary:hover { background: var(--bg-2); color: var(--fg); }
+  button.ghost { background: transparent; color: var(--fg-muted); border: 1px solid var(--border); padding: 4px 10px; font-size: 12px; }
+  button.ghost:hover { color: var(--fg); border-color: var(--accent); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .status {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 12px; color: var(--fg-muted);
+    margin-right: 4px;
+  }
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--fg-dim);
+    transition: background 200ms ease;
+  }
+  .dot.connecting { background: var(--warn); animation: pulse 1s ease-in-out infinite; }
+  .dot.connected { background: var(--ok); }
+  .dot.error { background: var(--err); }
+  @keyframes pulse { 50% { opacity: 0.3; } }
+
+  main { padding: 24px 32px 80px; }
+
+  .empty {
+    text-align: center;
+    color: var(--fg-muted);
+    padding: 80px 20px;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  .empty code {
+    background: var(--bg-card);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 13px;
+  }
+  .empty .hint {
+    margin-top: 24px;
+    font-size: 13px;
+    color: var(--fg-dim);
+  }
+
+  .mechs {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+    gap: 18px;
+  }
+
+  .mech {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .mech-head {
+    padding: 14px 18px;
+    background: rgba(233, 69, 96, 0.08);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px;
+  }
+  .mech-name {
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--fg);
+  }
+  .mech-name-mm {
+    font-size: 11px;
+    color: var(--accent);
+    margin-left: 6px;
+    font-weight: 500;
+  }
+  .mech-actions { display: flex; gap: 6px; }
+
+  .gains { padding: 8px 0; }
+  .group-label {
+    padding: 10px 18px 6px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--fg-dim);
+    font-weight: 700;
+  }
+
+  .gain {
+    display: grid;
+    grid-template-columns: 70px 1fr 100px;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 18px;
+  }
+  .gain:hover { background: rgba(255, 255, 255, 0.02); }
+  .gain-label {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 13px;
+    color: var(--fg-muted);
+  }
+  .gain.dirty .gain-label { color: var(--warn); }
+  .gain input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent);
+  }
+  .gain input[type="number"] {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    color: var(--fg);
+    padding: 5px 8px;
+    border-radius: 4px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 13px;
+    width: 100%;
+    text-align: right;
+  }
+  .gain input[type="number"]:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .gain.dirty input[type="number"] {
+    border-color: var(--warn);
+  }
+
+  footer {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    padding: 12px 32px;
+    background: rgba(15, 26, 46, 0.95);
+    backdrop-filter: blur(8px);
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  footer .info { color: var(--fg-muted); font-size: 12px; margin-right: auto; }
+  footer .info strong { color: var(--fg); }
+
+  dialog {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    color: var(--fg);
+    padding: 24px;
+    max-width: 640px;
+    width: 90vw;
+  }
+  dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+  dialog h2 { margin-top: 0; }
+  dialog pre {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    padding: 14px;
+    border-radius: 8px;
+    overflow: auto;
+    max-height: 50vh;
+    font-size: 12px;
+    color: var(--fg);
+  }
+  dialog .row { display: flex; gap: 8px; margin-top: 14px; }
+
+  .toast {
+    position: fixed;
+    bottom: 80px;
+    right: 32px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 12px 18px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--fg);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    z-index: 100;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 180ms ease, transform 180ms ease;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.ok { border-left-color: var(--ok); }
+  .toast.err { border-left-color: var(--err); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <svg viewBox="0 0 100 100">
+      <path d="M55,10 L35,52 L52,48 L42,90 L70,40 L52,44 L62,10 Z" fill="#e94560"/>
+    </svg>
+    <div>
+      <span class="brand-title">CATALYST</span>
+      <span class="brand-sub">Tuner</span>
+    </div>
+  </div>
+  <div class="conn">
+    <span class="status"><span class="dot" id="dot"></span><span id="statusText">disconnected</span></span>
+    <input type="text" id="host" placeholder="10.TE.AM.2 or roborio-####-frc.local" value="127.0.0.1" />
+    <button id="connectBtn">Connect</button>
+  </div>
+</header>
+
+<main>
+  <div id="empty" class="empty">
+    <div>Connect to a robot or simulator to start tuning.</div>
+    <div class="hint">
+      The tuner subscribes to <code>Catalyst/Tuning/*</code> and discovers
+      mechanisms automatically. Make sure your robot is running Catalyst v0.3.2
+      or newer.
+    </div>
+  </div>
+  <div id="mechs" class="mechs"></div>
+</main>
+
+<footer>
+  <div class="info">
+    <strong id="mechCount">0</strong> mechanisms ·
+    <strong id="gainCount">0</strong> live gains ·
+    <span id="latency">--</span>
+  </div>
+  <button class="secondary" id="resetAllBtn">Reset all to defaults</button>
+  <button class="secondary" id="exportBtn">Export as Java</button>
+  <button id="lockBtn">Lock for competition</button>
+</footer>
+
+<dialog id="exportDialog">
+  <h2>Java snippets</h2>
+  <p style="color: var(--fg-muted); font-size: 13px;">
+    Paste these back into your mechanism config builders. Values reflect what is
+    currently live on the robot.
+  </p>
+  <pre id="exportContent"></pre>
+  <div class="row">
+    <button id="copyExportBtn">Copy</button>
+    <button class="secondary" id="closeExportBtn">Close</button>
+  </div>
+</dialog>
+
+<div id="toast" class="toast"></div>
+
+<script type="module">
+import { encode, decode } from 'https://esm.sh/@msgpack/msgpack@3.0.0-beta2';
+
+// ============================================================
+// Minimal NT4 client.
+//
+// Spec we rely on:
+//   - WebSocket at ws://host:5810/nt/<clientName>
+//   - Subprotocol "networktables.first.wpi.edu.v4.1"
+//   - Text frames: JSON arrays of {method, params}
+//     Methods: publish, unpublish, setproperties, subscribe, unsubscribe,
+//              announce, unannounce, properties
+//   - Binary frames: msgpack 4-tuples [id, timestamp_us, type, value]
+//     For client->server, id = pubuid (assigned by us when we publish).
+//     For server->client, id = topic id (assigned by server in announce).
+//     Type codes: 0=bool, 1=double, 2=int, 3=float, 4=str, 5=bin,
+//                 16=bool[], 17=double[], 18=int[], 19=float[], 20=str[]
+// ============================================================
+
+const NT_TYPE = {
+  boolean: 0,
+  double: 1,
+  int: 2,
+  float: 3,
+  string: 4,
+  raw: 5,
+};
+
+class NT4 {
+  constructor() {
+    this.ws = null;
+    this.url = null;
+    this.connected = false;
+    this.nextSubUid = 1;
+    this.nextPubUid = 1;
+    this.topics = new Map();   // server topic id -> {name, type}
+    this.byName = new Map();   // name -> {topicId, type, pubuid?}
+    this.handlers = {
+      announce: () => {},
+      value: () => {},
+      status: () => {},
+    };
+  }
+
+  connect(host, port = 5810, clientName = 'catalyst-tuner') {
+    if (this.ws) this.ws.close();
+    const url = `ws://${host}:${port}/nt/${clientName}-${(Math.random() * 1e6) | 0}`;
+    this.url = url;
+    this.handlers.status('connecting', url);
+    try {
+      this.ws = new WebSocket(url, 'networktables.first.wpi.edu.v4.1');
+    } catch (e) {
+      this.handlers.status('error', e.message);
+      return;
+    }
+    this.ws.binaryType = 'arraybuffer';
+    this.ws.addEventListener('open', () => {
+      this.connected = true;
+      this.handlers.status('connected', url);
+      // Subscribe to the entire Catalyst/Tuning subtree.
+      this._send({
+        method: 'subscribe',
+        params: {
+          topics: ['Catalyst/Tuning/'],
+          subuid: this.nextSubUid++,
+          options: { prefix: true, all: true },
+        },
+      });
+    });
+    this.ws.addEventListener('close', () => {
+      this.connected = false;
+      this.handlers.status('disconnected');
+      this.topics.clear();
+      this.byName.clear();
+    });
+    this.ws.addEventListener('error', () => {
+      this.handlers.status('error', 'websocket error');
+    });
+    this.ws.addEventListener('message', (ev) => this._onMessage(ev));
+  }
+
+  disconnect() {
+    if (this.ws) this.ws.close();
+    this.ws = null;
+  }
+
+  _send(obj) {
+    if (!this.ws || this.ws.readyState !== 1) return;
+    this.ws.send(JSON.stringify([obj]));
+  }
+
+  _onMessage(ev) {
+    if (typeof ev.data === 'string') {
+      let msgs;
+      try { msgs = JSON.parse(ev.data); } catch { return; }
+      if (!Array.isArray(msgs)) msgs = [msgs];
+      for (const msg of msgs) this._onJson(msg);
+    } else {
+      this._onBinary(new Uint8Array(ev.data));
+    }
+  }
+
+  _onJson(msg) {
+    if (msg.method === 'announce') {
+      const { name, id, type } = msg.params;
+      this.topics.set(id, { name, type });
+      const existing = this.byName.get(name) || {};
+      this.byName.set(name, { ...existing, topicId: id, type });
+      this.handlers.announce(name, type);
+    } else if (msg.method === 'unannounce') {
+      const { name, id } = msg.params;
+      this.topics.delete(id);
+      this.byName.delete(name);
+    }
+  }
+
+  _onBinary(buf) {
+    // A binary frame may contain multiple back-to-back msgpack values.
+    // The decode() helper from @msgpack/msgpack returns one value at a time,
+    // so we iterate using a stream-style approach via decodeMulti would be
+    // ideal; here we use the simpler unpack-many pattern.
+    let offset = 0;
+    while (offset < buf.length) {
+      let result, consumed;
+      try {
+        // decode returns the parsed value but no offset; we instead try
+        // progressively-larger slices. This is rare path on inputs we receive,
+        // and frames are typically small. For better perf use decodeMulti.
+        result = decode(buf.subarray(offset));
+      } catch {
+        return;
+      }
+      // We do not have a robust way to know how many bytes were consumed
+      // from a single decode(). The library exposes decodeMulti for this;
+      // use it if available.
+      break;
+    }
+    // Use decodeMulti for proper streaming.
+    this._decodeMulti(buf);
+  }
+
+  async _decodeMulti(buf) {
+    const { decodeMulti } = await import('https://esm.sh/@msgpack/msgpack@3.0.0-beta2');
+    try {
+      for (const value of decodeMulti(buf)) {
+        if (!Array.isArray(value) || value.length < 4) continue;
+        const [id, ts, type, payload] = value;
+        if (id < 0) continue;
+        const topic = this.topics.get(id);
+        if (!topic) continue;
+        this.handlers.value(topic.name, payload, ts, type);
+      }
+    } catch {
+      // ignore decode errors
+    }
+  }
+
+  /** Publish a topic so we can write to it. Returns the pubuid. */
+  publish(name, type) {
+    const existing = this.byName.get(name);
+    if (existing && existing.pubuid) return existing.pubuid;
+    const pubuid = this.nextPubUid++;
+    this._send({
+      method: 'publish',
+      params: { name, pubuid, type, properties: {} },
+    });
+    this.byName.set(name, { ...(existing || {}), pubuid, type });
+    return pubuid;
+  }
+
+  /** Write a value to a previously-published topic. */
+  setValue(name, type, value) {
+    const meta = this.byName.get(name);
+    if (!meta || !meta.pubuid) return;
+    const typeNum = NT_TYPE[type] ?? 1;
+    const ts = (performance.now() * 1000) | 0;
+    const frame = encode([meta.pubuid, ts, typeNum, value]);
+    if (this.ws && this.ws.readyState === 1) this.ws.send(frame);
+  }
+}
+
+// ============================================================
+// UI state
+// ============================================================
+
+const nt = new NT4();
+const $ = (id) => document.getElementById(id);
+
+const state = {
+  mechanisms: new Map(), // mechName -> { gains: Map<gainName, {value, default, type, isMM, dirty}>, hasMM, sawAny }
+  lastUpdate: 0,
+};
+
+const GAIN_ORDER = ['kP', 'kI', 'kD', 'kS', 'kV', 'kA', 'kG'];
+const MM_ORDER = ['CruiseVelocity', 'Acceleration', 'Jerk'];
+
+function ensureMech(name) {
+  let m = state.mechanisms.get(name);
+  if (!m) {
+    m = { gains: new Map(), hasMM: false, sawAny: false };
+    state.mechanisms.set(name, m);
+  }
+  return m;
+}
+
+function parseGainKey(fullName) {
+  // fullName: "Catalyst/Tuning/<MechName>/kP"
+  //        or "Catalyst/Tuning/<MechName>/MM/CruiseVelocity"
+  const prefix = 'Catalyst/Tuning/';
+  if (!fullName.startsWith(prefix)) return null;
+  const rest = fullName.slice(prefix.length);
+  const parts = rest.split('/');
+  if (parts.length === 2) {
+    return { mech: parts[0], gain: parts[1], isMM: false };
+  }
+  if (parts.length === 3 && parts[1] === 'MM') {
+    return { mech: parts[0], gain: parts[2], isMM: true };
+  }
+  return null;
+}
+
+function onAnnounce(name, type) {
+  const parsed = parseGainKey(name);
+  if (!parsed) return;
+  const mech = ensureMech(parsed.mech);
+  if (parsed.isMM) mech.hasMM = true;
+  if (!mech.gains.has(parsed.gain + (parsed.isMM ? '__MM' : ''))) {
+    mech.gains.set(parsed.gain + (parsed.isMM ? '__MM' : ''), {
+      name: parsed.gain,
+      isMM: parsed.isMM,
+      fullName: name,
+      type,
+      value: 0,
+      default: null,
+      dirty: false,
+    });
+  }
+  // Also publish this topic so we can write to it.
+  nt.publish(name, type);
+  render();
+}
+
+function onValue(name, value) {
+  const parsed = parseGainKey(name);
+  if (!parsed) return;
+  const mech = ensureMech(parsed.mech);
+  const key = parsed.gain + (parsed.isMM ? '__MM' : '');
+  const g = mech.gains.get(key);
+  if (!g) return;
+  if (g.default === null) g.default = value;
+  // Only update if not being actively edited (no dirty pending write).
+  if (!g.dirty) {
+    g.value = value;
+  }
+  mech.sawAny = true;
+  state.lastUpdate = Date.now();
+  render();
+}
+
+function setStatus(kind, detail) {
+  const dot = $('dot');
+  const txt = $('statusText');
+  dot.classList.remove('connecting', 'connected', 'error');
+  if (kind === 'connecting') {
+    dot.classList.add('connecting');
+    txt.textContent = 'connecting…';
+  } else if (kind === 'connected') {
+    dot.classList.add('connected');
+    txt.textContent = 'connected';
+    $('connectBtn').textContent = 'Disconnect';
+  } else if (kind === 'error') {
+    dot.classList.add('error');
+    txt.textContent = detail || 'error';
+    $('connectBtn').textContent = 'Connect';
+  } else {
+    txt.textContent = 'disconnected';
+    $('connectBtn').textContent = 'Connect';
+  }
+}
+
+nt.handlers.announce = onAnnounce;
+nt.handlers.value = onValue;
+nt.handlers.status = setStatus;
+
+// ============================================================
+// Rendering
+// ============================================================
+
+let renderRequested = false;
+function render() {
+  if (renderRequested) return;
+  renderRequested = true;
+  requestAnimationFrame(doRender);
+}
+
+function doRender() {
+  renderRequested = false;
+  const container = $('mechs');
+  const empty = $('empty');
+  const names = [...state.mechanisms.keys()].sort();
+  if (names.length === 0) {
+    empty.style.display = '';
+    container.innerHTML = '';
+    $('mechCount').textContent = '0';
+    $('gainCount').textContent = '0';
+    return;
+  }
+  empty.style.display = 'none';
+  let totalGains = 0;
+  container.innerHTML = names.map((mechName) => {
+    const m = state.mechanisms.get(mechName);
+    totalGains += m.gains.size;
+    const pidRows = GAIN_ORDER
+      .filter((g) => m.gains.has(g))
+      .map((g) => renderGain(mechName, m.gains.get(g)))
+      .join('');
+    const mmRows = MM_ORDER
+      .filter((g) => m.gains.has(g + '__MM'))
+      .map((g) => renderGain(mechName, m.gains.get(g + '__MM')))
+      .join('');
+    return `
+      <div class="mech" data-mech="${mechName}">
+        <div class="mech-head">
+          <div class="mech-name">${mechName}${m.hasMM ? '<span class="mech-name-mm">+ Motion Magic</span>' : ''}</div>
+          <div class="mech-actions">
+            <button class="ghost" data-action="reset" data-mech="${mechName}">reset</button>
+          </div>
+        </div>
+        <div class="gains">
+          ${pidRows ? `<div class="group-label">PID + Feedforward</div>${pidRows}` : ''}
+          ${mmRows ? `<div class="group-label">Motion Magic</div>${mmRows}` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+  $('mechCount').textContent = names.length;
+  $('gainCount').textContent = totalGains;
+}
+
+function renderGain(mechName, g) {
+  const max = sliderMax(g);
+  const step = sliderStep(g);
+  return `
+    <div class="gain ${g.dirty ? 'dirty' : ''}" data-mech="${mechName}" data-gain="${g.name}" data-mm="${g.isMM}">
+      <div class="gain-label">${g.name}</div>
+      <input type="range" min="0" max="${max}" step="${step}" value="${Math.max(0, Math.min(g.value, max))}" />
+      <input type="number" step="${step}" value="${formatNumber(g.value)}" />
+    </div>
+  `;
+}
+
+function sliderMax(g) {
+  if (g.isMM) {
+    if (g.name === 'CruiseVelocity') return Math.max(200, (g.default ?? 0) * 4);
+    if (g.name === 'Acceleration') return Math.max(800, (g.default ?? 0) * 4);
+    if (g.name === 'Jerk') return Math.max(2000, (g.default ?? 0) * 4);
+    return 1000;
+  }
+  switch (g.name) {
+    case 'kP': return Math.max(50, (g.default ?? 0) * 4);
+    case 'kI': return Math.max(5, (g.default ?? 0) * 4);
+    case 'kD': return Math.max(10, (g.default ?? 0) * 4);
+    case 'kS':
+    case 'kV':
+    case 'kA':
+    case 'kG': return Math.max(2, (g.default ?? 0) * 4);
+    default: return 100;
+  }
+}
+
+function sliderStep(g) {
+  if (g.isMM) return g.name === 'Jerk' ? 10 : 0.5;
+  if (g.name === 'kP' || g.name === 'kD') return 0.1;
+  return 0.001;
+}
+
+function formatNumber(v) {
+  if (Math.abs(v) >= 100) return v.toFixed(1);
+  if (Math.abs(v) >= 1) return v.toFixed(3);
+  return v.toFixed(4);
+}
+
+// ============================================================
+// Event wiring
+// ============================================================
+
+$('mechs').addEventListener('input', (e) => {
+  const row = e.target.closest('.gain');
+  if (!row) return;
+  const mechName = row.dataset.mech;
+  const gainName = row.dataset.gain;
+  const isMM = row.dataset.mm === 'true';
+  const mech = state.mechanisms.get(mechName);
+  const key = gainName + (isMM ? '__MM' : '');
+  const g = mech.gains.get(key);
+  if (!g) return;
+
+  const newValue = parseFloat(e.target.value);
+  if (Number.isNaN(newValue)) return;
+
+  g.value = newValue;
+  g.dirty = true;
+
+  // Sync the other input in this row.
+  const otherSelector = e.target.type === 'range' ? 'input[type=number]' : 'input[type=range]';
+  const other = row.querySelector(otherSelector);
+  if (other) other.value = e.target.type === 'range' ? formatNumber(newValue) : newValue;
+
+  row.classList.add('dirty');
+  row.querySelector('.gain-label').style.color = 'var(--warn)';
+
+  // Push to robot.
+  nt.setValue(g.fullName, 'double', newValue);
+
+  // Clear dirty after a short pause so future server echoes update the field again.
+  clearTimeout(g._dirtyTimer);
+  g._dirtyTimer = setTimeout(() => {
+    g.dirty = false;
+    row.classList.remove('dirty');
+    row.querySelector('.gain-label').style.color = '';
+  }, 600);
+});
+
+$('mechs').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-action=reset]');
+  if (!btn) return;
+  const mechName = btn.dataset.mech;
+  const mech = state.mechanisms.get(mechName);
+  if (!mech) return;
+  for (const g of mech.gains.values()) {
+    if (g.default === null) continue;
+    g.value = g.default;
+    nt.setValue(g.fullName, 'double', g.default);
+  }
+  toast(`Reset ${mechName} to defaults`, 'ok');
+  render();
+});
+
+$('connectBtn').addEventListener('click', () => {
+  if (nt.connected) {
+    nt.disconnect();
+    state.mechanisms.clear();
+    render();
+    return;
+  }
+  const host = $('host').value.trim() || '127.0.0.1';
+  nt.connect(host);
+});
+
+$('host').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') $('connectBtn').click();
+});
+
+$('resetAllBtn').addEventListener('click', () => {
+  let count = 0;
+  for (const [mechName, mech] of state.mechanisms) {
+    for (const g of mech.gains.values()) {
+      if (g.default === null) continue;
+      g.value = g.default;
+      nt.setValue(g.fullName, 'double', g.default);
+      count++;
+    }
+  }
+  toast(`Reset ${count} gains`, 'ok');
+  render();
+});
+
+$('lockBtn').addEventListener('click', () => {
+  if (!nt.connected) return toast('Not connected', 'err');
+  // Lock semantics: this UI cannot call disableTuning() on the robot directly,
+  // but we publish a hint string under Catalyst/Tuning/__locked so robot code
+  // (or future Catalyst versions) can react. Also, the user gets a clear
+  // reminder in the toast that the real lock is the robot-side call.
+  nt.publish('Catalyst/Tuning/__locked', 'string');
+  nt.setValue('Catalyst/Tuning/__locked', 'string', new Date().toISOString());
+  toast('Sent lock hint. For real comp lock, call TunableNumber.disableTuning() in robotInit().', 'ok');
+});
+
+$('exportBtn').addEventListener('click', () => {
+  const blocks = [];
+  const names = [...state.mechanisms.keys()].sort();
+  for (const mechName of names) {
+    const m = state.mechanisms.get(mechName);
+    const get = (key, mm = false) => {
+      const g = m.gains.get(key + (mm ? '__MM' : ''));
+      return g ? formatNumber(g.value) : null;
+    };
+    const lines = [`// ${mechName}`];
+    const p = get('kP'), i = get('kI'), d = get('kD');
+    if (p && i && d) lines.push(`.pid(${p}, ${i}, ${d})`);
+    const s = get('kS'), v = get('kV'), a = get('kA');
+    if (s && v && a) lines.push(`.feedforward(${s}, ${v}, ${a})`);
+    const grav = get('kG');
+    if (grav && parseFloat(grav) !== 0) lines.push(`.gravity(${grav})`);
+    if (m.hasMM) {
+      const cv = get('CruiseVelocity', true);
+      const ac = get('Acceleration', true);
+      const j = get('Jerk', true);
+      if (cv && ac && j) lines.push(`.motionMagic(${cv}, ${ac}, ${j})`);
+    }
+    blocks.push(lines.join('\n    '));
+  }
+  $('exportContent').textContent = blocks.join('\n\n') || '(no mechanisms discovered yet)';
+  $('exportDialog').showModal();
+});
+
+$('closeExportBtn').addEventListener('click', () => $('exportDialog').close());
+$('copyExportBtn').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText($('exportContent').textContent);
+    toast('Copied to clipboard', 'ok');
+  } catch {
+    toast('Clipboard blocked — select + copy manually', 'err');
+  }
+});
+
+let toastTimer = null;
+function toast(msg, kind) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.classList.remove('ok', 'err', 'show');
+  if (kind) el.classList.add(kind);
+  void el.offsetWidth; // restart transition
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// Latency indicator.
+setInterval(() => {
+  const el = $('latency');
+  if (!nt.connected) { el.textContent = '--'; return; }
+  const age = state.lastUpdate ? Date.now() - state.lastUpdate : null;
+  if (age === null) el.textContent = 'waiting…';
+  else if (age < 200) el.textContent = `live (${age}ms)`;
+  else if (age < 2000) el.textContent = `lagging (${age}ms)`;
+  else el.textContent = `stale (${(age / 1000).toFixed(0)}s)`;
+}, 500);
+</script>
+
+</body>
+</html>

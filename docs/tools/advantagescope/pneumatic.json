@@ -1,0 +1,36 @@
+{
+  "$schema": "../catalyst-tab-bundle.schema.json",
+  "catalystVersion": "0.3.2",
+  "mechanism": "PneumaticMechanism",
+  "description": "Solenoid state, pressure, and transition-count dashboard.",
+  "placeholders": {
+    "MECH": "Replace with the PneumaticMechanism name (e.g. Indexer, Climber, Hook)."
+  },
+  "tabs": [
+    {
+      "title": "{MECH} — State",
+      "type": "Console",
+      "fields": [
+        { "key": "/Catalyst/{MECH}/State" }
+      ]
+    },
+    {
+      "title": "{MECH} — Pressure / cycles",
+      "type": "LineGraph",
+      "axes": {
+        "left": {
+          "unit": "psi",
+          "fields": [
+            { "key": "/Catalyst/{MECH}/PressurePSI", "color": "#60a5fa" }
+          ]
+        },
+        "right": {
+          "unit": "count",
+          "fields": [
+            { "key": "/Catalyst/{MECH}/TransitionCount", "color": "#fbbf24" }
+          ]
+        }
+      }
+    }
+  ]
+}

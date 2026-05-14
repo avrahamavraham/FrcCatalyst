@@ -5,6 +5,32 @@ All notable changes to FrcCatalyst are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.3.3-beta] — 2026-05-14
+
+### Fixed — IMPORTANT, READ THIS
+- **`MotorType` FOC variants had the same stall torque as their non-FOC counterparts.** Phoenix 6 FOC delivers about 30% more stall torque, so any team using `MotorType.KRAKEN_X60_FOC` or `MotorType.FALCON_500_FOC` was getting wrong numbers out of `holdingVoltage(...)`, `maxMechanismTorque(...)`, `getDCMotor(...)`, and `MotionConstraintCalculator`. Concrete effect: gravity feedforward voltages were over-stated by ~30%, and sim models under-reported torque. Re-check any hand-tuned `kG` values after upgrading.
+  - `KRAKEN_X60_FOC`: stall torque 7.09 → **9.37 Nm**, free speed 6000 → **5800 RPM**, stall current 366 → **483 A**
+  - `FALCON_500_FOC`: stall torque 4.69 → **5.84 Nm**, stall current 257 → **304 A**, free speed → **6080 RPM**
+  - Values now match CTRE's published specs and WPILib 2026's `DCMotor.getKrakenX60Foc()` / `DCMotor.getFalcon500Foc()`.
+
+### Changed
+- **`MotorType` is no longer an `enum`** — it's a regular `final class` with the same `public static final` constants (`MotorType.KRAKEN_X60` etc.) so existing code keeps compiling unchanged. The change unlocks user-declared motor specs, which teams running NEO, NEO Vortex, Minion, or anything else Catalyst doesn't ship a preset for can now use directly: `new MotorType("NEO 550", 0.97, 11000, 100, 1.4)`.
+
+### Added
+- **`MotorType.KRAKEN_X44`** and **`MotorType.KRAKEN_X44_FOC`** presets — previously missing. Specs sourced from CTRE: 4.05 / 5.45 Nm stall torque, 7530 / 7200 RPM free, 275 / 366 A stall current.
+- **`CatalystMath`** gained FOC and X44 constants (`KRAKEN_X60_FOC_STALL_TORQUE`, `KRAKEN_X44_STALL_TORQUE`, `FALCON_FOC_STALL_TORQUE`, etc.). The existing non-FOC constants are unchanged.
+- **Health Kit** under `frc.lib.catalyst.util`:
+  - `HealthCheck` — a single debounced fault condition with `Severity` (INFO/WARN/ERROR), a `BooleanSupplier` predicate, optional live `detail` string, `debounce(seconds)`, `clearAfter(seconds)`, and `onFire`/`onClear` hooks. Built via a fluent `HealthCheck.builder(subsystem, id)` and registered with one `.register()` call.
+  - `HealthMonitor` — singleton registry that ticks every check once per loop (throttled to 5 ms, so all eight built-in mechanisms calling it cost one evaluation per scheduler tick). Publishes per-check state to `Catalyst/Health/<subsystem>/<id>/{firing,severity,description,detail,firedAt}` and rollup counts to `Catalyst/Health/{ErrorCount,WarnCount,InfoCount,Healthy}`. Every fire/clear edge is relayed to the existing `AlertManager` so dashboards already wired against it keep working.
+  - `HealthMonitor.standardMotorChecks(...)` — one call registers OverCurrent (WARN at 90% of stator limit, debounce 0.5 s), HighTemp (WARN, debounce 1.0 s, clearAfter 5.0 s), and OverTemp (ERROR at warn+10 °C, immediate fire, auto-calls `motor.stop()`).
+- **Health checks wired into every built-in mechanism** — Linear/Rotational add Stall + NotZeroed, Flywheel adds NotSpinningUp, Pneumatic adds LowPressure (with `requirePressureAbove(psi)` gating actuation). Multi-motor mechanisms (Flywheel, Winch, Claw follower, DifferentialWrist) register per-motor checks with collision-free id suffixes.
+- **Health Dashboard** at `docs/tools/health/index.html` — single-file dark-themed web viewer that connects to NT4 read-only, shows per-subsystem cards with severity-colored firing checks, filter buttons (All / Firing only / Errors only), and a search box.
+
+### Notes
+- HealthCheck predicates and detail suppliers are wrapped in try/catch — a buggy lambda from team code won't take down the whole monitor.
+- All thresholds use honest seconds-based debounce/clearAfter semantics rather than loop-cycle counts, so behavior is unaffected by scheduler period.
+- Backward-compatible: existing `AlertManager.error/warning/info` calls in team code keep working; the built-in mechanisms just go through HealthCheck now.
+
 ## [0.3.2-beta] — 2026-05-14
 
 ### Added

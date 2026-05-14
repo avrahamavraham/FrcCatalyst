@@ -9,6 +9,8 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.lib.catalyst.io.PneumaticMechanismInputs;
 import frc.lib.catalyst.util.AlertManager;
+import frc.lib.catalyst.util.HealthCheck;
+import frc.lib.catalyst.util.HealthMonitor;
 
 /**
  * Pneumatic actuator mechanism — wraps a single or double solenoid as a
@@ -70,6 +72,24 @@ public class PneumaticMechanism extends CatalystMechanism {
         }
 
         this.compressor = config.attachCompressor ? new Compressor(config.moduleType) : null;
+
+        if (compressor != null && config.minPressurePSI > 0) {
+            HealthCheck.builder(name, "LowPressure")
+                    .severity(HealthCheck.Severity.WARN)
+                    .description("Air pressure below operating threshold")
+                    .when(() -> {
+                        double psi = getPressure();
+                        return psi >= 0 && psi < config.minPressurePSI;
+                    })
+                    .detail(() -> {
+                        double psi = getPressure();
+                        if (psi < 0) return "no sensor";
+                        return String.format("%.0f psi (min %.0f)", psi, config.minPressurePSI);
+                    })
+                    .debounce(0.5)
+                    .clearAfter(2.0)
+                    .register();
+        }
     }
 
     // --- Getters ---
@@ -233,6 +253,8 @@ public class PneumaticMechanism extends CatalystMechanism {
         log("State", inputs.state);
         log("PressurePSI", inputs.pressurePSI);
         log("TransitionCount", inputs.transitionCount);
+
+        HealthMonitor.getInstance().update();
     }
 
     /** Get the underlying DoubleSolenoid for advanced use ({@code null} for single-solenoid configs). */

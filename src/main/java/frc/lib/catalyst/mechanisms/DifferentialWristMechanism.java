@@ -5,6 +5,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.lib.catalyst.hardware.CatalystMotor;
 import frc.lib.catalyst.io.DifferentialWristMechanismInputs;
+import frc.lib.catalyst.util.HealthMonitor;
 import frc.lib.catalyst.util.TunableGains;
 
 import java.util.HashMap;
@@ -106,6 +107,9 @@ public class DifferentialWristMechanism extends CatalystMechanism {
                 config.motionMagicCruiseVelocity,
                 config.motionMagicAcceleration,
                 config.motionMagicJerk);
+
+        HealthMonitor.standardMotorChecks(name, "Left", leftMotor, config.statorCurrentLimit, 70);
+        HealthMonitor.standardMotorChecks(name, "Right", rightMotor, config.statorCurrentLimit, 70);
     }
 
     // --- Conversions ---
@@ -257,6 +261,8 @@ public class DifferentialWristMechanism extends CatalystMechanism {
         log("PitchSetpointDegrees", inputs.pitchSetpointDegrees);
         log("RollSetpointDegrees", inputs.rollSetpointDegrees);
         log("AtSetpoint", inputs.atSetpoint);
+
+        HealthMonitor.getInstance().update();
     }
 
     public CatalystMotor getLeftMotor() { return leftMotor; }

@@ -1,0 +1,44 @@
+{
+  "$schema": "../catalyst-tab-bundle.schema.json",
+  "catalystVersion": "0.3.2",
+  "mechanism": "FlywheelMechanism",
+  "description": "Dual-flywheel velocity / spin-up dashboard.",
+  "placeholders": {
+    "MECH": "Replace with the FlywheelMechanism name (e.g. Shooter, Launcher)."
+  },
+  "tabs": [
+    {
+      "title": "{MECH} — Velocity",
+      "type": "LineGraph",
+      "axes": {
+        "left": {
+          "unit": "rps",
+          "fields": [
+            { "key": "/Catalyst/{MECH}/VelocityRPS", "color": "#e94560" },
+            { "key": "/Catalyst/{MECH}/SetpointRPS", "color": "#ff6b6b", "style": "dashed" },
+            { "key": "/Catalyst/{MECH}/SecondaryVelocityRPS", "color": "#60a5fa" },
+            { "key": "/Catalyst/{MECH}/SecondarySetpointRPS", "color": "#93c5fd", "style": "dashed" }
+          ]
+        },
+        "right": {
+          "unit": "boolean",
+          "fields": [
+            { "key": "/Catalyst/{MECH}/AtSpeed", "color": "#4ade80" }
+          ]
+        }
+      }
+    },
+    {
+      "title": "{MECH} — Tuning",
+      "type": "Table",
+      "fields": [
+        "/Catalyst/Tuning/{MECH}/kP",
+        "/Catalyst/Tuning/{MECH}/kI",
+        "/Catalyst/Tuning/{MECH}/kD",
+        "/Catalyst/Tuning/{MECH}/kS",
+        "/Catalyst/Tuning/{MECH}/kV",
+        "/Catalyst/Tuning/{MECH}/kA"
+      ]
+    }
+  ]
+}

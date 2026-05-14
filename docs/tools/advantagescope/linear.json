@@ -1,0 +1,79 @@
+{
+  "$schema": "../catalyst-tab-bundle.schema.json",
+  "catalystVersion": "0.3.2",
+  "mechanism": "LinearMechanism",
+  "description": "Position/velocity/current dashboard for any LinearMechanism (elevators, extenders).",
+  "placeholders": {
+    "MECH": "Replace with the LinearMechanism name from your Config builder (e.g. Elevator, Extender)."
+  },
+  "tabs": [
+    {
+      "title": "{MECH} — Position",
+      "type": "LineGraph",
+      "axes": {
+        "left": {
+          "unit": "meters",
+          "fields": [
+            { "key": "/Catalyst/{MECH}/PositionMeters", "color": "#e94560" },
+            { "key": "/Catalyst/{MECH}/SetpointMeters", "color": "#ff6b6b", "style": "dashed" }
+          ]
+        },
+        "right": {
+          "unit": "boolean",
+          "fields": [
+            { "key": "/Catalyst/{MECH}/AtSetpoint", "color": "#4ade80" },
+            { "key": "/Catalyst/{MECH}/HasBeenZeroed", "color": "#fbbf24" }
+          ]
+        }
+      }
+    },
+    {
+      "title": "{MECH} — Motion",
+      "type": "LineGraph",
+      "axes": {
+        "left": {
+          "unit": "m/s",
+          "fields": [
+            { "key": "/Catalyst/{MECH}/VelocityMPS", "color": "#60a5fa" }
+          ]
+        },
+        "right": {
+          "unit": "amps",
+          "fields": [
+            { "key": "/Catalyst/{MECH}/CurrentAmps", "color": "#f59e0b" }
+          ]
+        }
+      }
+    },
+    {
+      "title": "{MECH} — Limits (optional)",
+      "notes": "Only present when forward/reverse limit switches are configured on the mechanism.",
+      "type": "LineGraph",
+      "axes": {
+        "left": {
+          "unit": "boolean",
+          "fields": [
+            { "key": "/Catalyst/{MECH}/ForwardLimit", "color": "#4ade80" },
+            { "key": "/Catalyst/{MECH}/ReverseLimit", "color": "#f87171" }
+          ]
+        }
+      }
+    },
+    {
+      "title": "{MECH} — Tuning",
+      "type": "Table",
+      "fields": [
+        "/Catalyst/Tuning/{MECH}/kP",
+        "/Catalyst/Tuning/{MECH}/kI",
+        "/Catalyst/Tuning/{MECH}/kD",
+        "/Catalyst/Tuning/{MECH}/kS",
+        "/Catalyst/Tuning/{MECH}/kV",
+        "/Catalyst/Tuning/{MECH}/kA",
+        "/Catalyst/Tuning/{MECH}/kG",
+        "/Catalyst/Tuning/{MECH}/MM/CruiseVelocity",
+        "/Catalyst/Tuning/{MECH}/MM/Acceleration",
+        "/Catalyst/Tuning/{MECH}/MM/Jerk"
+      ]
+    }
+  ]
+}
