@@ -49,7 +49,7 @@ repositories {
 }
 
 dependencies {
-    implementation "com.github.TomAs-1226:FrcCatalyst:v0.3.0-beta"
+    implementation "com.github.TomAs-1226:FrcCatalyst:v0.3.1-beta"
 }
 ```
 

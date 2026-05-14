@@ -108,6 +108,27 @@ public class PneumaticMechanism extends CatalystMechanism {
         return compressor.getPressure();
     }
 
+    /**
+     * Seconds since the last state transition.
+     *
+     * <p>Useful for sequencing: "wait until the cylinder has been extended for
+     * at least 0.25s before releasing the next stage." Returns 0 before the
+     * first transition.
+     *
+     * <pre>{@code
+     * climbHook.extend().andThen(Commands.waitUntil(() -> climbHook.timeInState() > 0.25));
+     * }</pre>
+     */
+    public double timeInState() {
+        if (lastTransitionTimestamp <= 0) return 0.0;
+        return Timer.getFPGATimestamp() - lastTransitionTimestamp;
+    }
+
+    /** Total number of state transitions since construction. */
+    public long getTransitionCount() {
+        return transitionCount;
+    }
+
     // --- Command Factories ---
 
     /** Extend the actuator (drive solenoid forward). */

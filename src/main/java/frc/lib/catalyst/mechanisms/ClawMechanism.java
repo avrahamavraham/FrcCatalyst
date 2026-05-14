@@ -71,10 +71,14 @@ public class ClawMechanism extends CatalystMechanism {
 
     // --- Getters ---
 
-    /** True when the claw believes it is currently holding a game piece. */
+    /**
+     * True when the claw believes it is currently holding a game piece.
+     * Returns true if EITHER the beam-break is broken OR stall detection
+     * has latched — so configuring both signals gives redundant detection.
+     */
     public boolean hasPiece() {
-        if (beamBreak != null) return !beamBreak.get();
-        return hasPiece;
+        boolean beamBroken = beamBreak != null && !beamBreak.get();
+        return beamBroken || hasPiece;
     }
 
     /** Trigger that fires whenever {@link #hasPiece()} is true. */
