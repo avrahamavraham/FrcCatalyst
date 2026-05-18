@@ -90,14 +90,7 @@ disconnected from the internet.
 <a class="tool-card" href="motion/">
   <span class="icon">📈</span>
   <p class="name">Motion Profile Visualizer</p>
-  <p class="desc">Sketch a Motion Magic profile before committing. Analytic trapezoid + 7-segment S-curve solvers, live s-v-a curves, paste-ready <code>.motionMagic(...)</code>.</p>
-  <span class="tag calc">Calculator</span>
-</a>
-
-<a class="tool-card" href="pid/">
-  <span class="icon">🎯</span>
-  <p class="name">PID Step Response</p>
-  <p class="desc">Pick a plant (elevator / arm / flywheel), dial PID + feedforward gains, watch the closed-loop step response. Rise time, settling, overshoot reported.</p>
+  <p class="desc">Sketch a Motion Magic profile before committing. Cruise / accel / jerk → live s-v-a curves and a paste-ready <code>.motionMagic(...)</code> snippet.</p>
   <span class="tag calc">Calculator</span>
 </a>
 
@@ -106,13 +99,6 @@ disconnected from the internet.
   <p class="name">MotorType Browser</p>
   <p class="desc">Searchable table of every <code>MotorType</code> preset with a built-in gear-ratio calculator. Max RPM, output torque, holding voltage at a glance.</p>
   <span class="tag calc">Calculator</span>
-</a>
-
-<a class="tool-card" href="canids/">
-  <span class="icon">🔌</span>
-  <p class="name">CAN ID Planner</p>
-  <p class="desc">Plan and audit your robot's CAN bus. Add devices, detect conflicts, presets for swerve / shooter / elevator, JSON export.</p>
-  <span class="tag calc">Planner</span>
 </a>
 
 </div>
@@ -231,49 +217,6 @@ the side of your notebook:
 Specs match the values inside
 [`src/main/java/frc/lib/catalyst/hardware/MotorType.java`](https://github.com/TomAs-1226/FrcCatalyst/blob/main/src/main/java/frc/lib/catalyst/hardware/MotorType.java)
 and WPILib 2026's `DCMotor.getKraken*` / `getFalcon500*` factories.
-
-## PID Step Response Simulator
-
-Open at [tools/pid/](pid/). Pick a plant — elevator, arm, or flywheel — set
-target setpoint, then dial PID + feedforward gains and watch the closed-loop
-response live.
-
-- **Three plant models** — each is a 2nd-order (or 1st-order for flywheel)
-  continuous DCMotor system integrated with RK4 at 200 Hz and controlled
-  at the WPILib-standard 50 Hz.
-- **PID + feedforward** that match Catalyst's Slot 0 layout: `kP`, `kI`,
-  `kD`, `kS` (static), `kV` (velocity), `kG` (gravity — cosine for arm,
-  constant for elevator, ignored for flywheel).
-- **Tuning metrics** — rise time (10→90 %), settling time (±5 %),
-  overshoot %, steady-state error, peak voltage. Helpful for spotting
-  textbook PID problems (oscillation, lag, integrator wind-up).
-- **One-click copy** of the gain triplet as Catalyst builder lines:
-  `.pid(...) + .feedforward(...) + .gravityGain(...)`.
-
-This is a teaching / intuition tool — the plant constants approximate a
-mid-sized FRC mechanism but aren't your robot. Use it to understand
-*which gain to push and which way* before you start tuning on metal.
-
-## CAN ID Planner
-
-Open at [tools/canids/](canids/). Drag-free interface to plan every CAN
-device on your robot and catch ID collisions before the wiring team
-crimps anything.
-
-- **Add devices** by name + ID + type (Kraken X60 / X44, Falcon 500,
-  CANcoder, Pigeon 2, CANdle, CANdi, PDH, NEO, Vortex, 550, Minion) and
-  bus (`canivore` / `rio`).
-- **Conflict detection** — any duplicate `(bus, id)` pair lights up red
-  immediately.
-- **Presets** for the common patterns: swerve drivetrain (4× Kraken
-  drive + 4× steer + 4× CANcoder + Pigeon on a CANivore), shooter, and
-  elevator + arm.
-- **Persists to `localStorage`** so the plan survives reload.
-- **Export / import JSON** — share with the wiring team, check the file
-  into the robot repo, or load the plan back next season.
-- **Wiring summary** is a plain-text view (also downloadable) you can
-  paste into team chat or print to tape on the inside of the electrical
-  panel.
 
 ## AdvantageScope tab bundles
 

@@ -15,8 +15,6 @@ Pre-built, configurable mechanism building blocks for FRC robots using CTRE Phoe
 [Open the Tools](tools/){: .btn .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [View on GitHub](https://github.com/TomAs-1226/FrcCatalyst){: .btn .fs-5 .mb-4 .mb-md-0 }
 
-{% include hero3d.html %}
-
 ---
 
 ## Try the tools (no install required)
@@ -55,10 +53,8 @@ immediately — no clone, no `npm install`, no build step.
   <a class="hero-tool" href="tools/builder/"><span class="icon">🛠️</span><span class="name">Catalyst Builder</span><span class="desc">Form → ready-to-paste Java config for every mechanism.</span></a>
   <a class="hero-tool" href="tools/tuner/"><span class="icon">🎚</span><span class="name">Catalyst Tuner</span><span class="desc">Live NT4 PID + Motion Magic tuner.</span></a>
   <a class="hero-tool" href="tools/health/"><span class="icon">🩺</span><span class="name">Health Dashboard</span><span class="desc">Live <code>/Catalyst/Health/</code> viewer with filters.</span></a>
-  <a class="hero-tool" href="tools/motion/"><span class="icon">📈</span><span class="name">Motion Profile Visualizer</span><span class="desc">Analytic trapezoid / S-curve profile sketcher.</span></a>
-  <a class="hero-tool" href="tools/pid/"><span class="icon">🎯</span><span class="name">PID Step Response</span><span class="desc">Pick a plant, dial gains, see the closed-loop response.</span></a>
+  <a class="hero-tool" href="tools/motion/"><span class="icon">📈</span><span class="name">Motion Profile Visualizer</span><span class="desc">Sketch a Motion Magic profile before committing.</span></a>
   <a class="hero-tool" href="tools/motors/"><span class="icon">⚡</span><span class="name">MotorType Browser</span><span class="desc">Every motor preset + gear-ratio calculator.</span></a>
-  <a class="hero-tool" href="tools/canids/"><span class="icon">🔌</span><span class="name">CAN ID Planner</span><span class="desc">Plan + audit the CAN bus before wiring.</span></a>
 </div>
 
 [Full tool docs →](tools/){: .btn .btn-outline .fs-4 .mb-4 }

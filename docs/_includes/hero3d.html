@@ -1,0 +1,195 @@
+<!-- Three.js 3D hero — auto-rotates, mouse-tracks. Roughly 5ms per frame on a laptop iGPU. -->
+<style>
+  .catalyst-hero {
+    position: relative;
+    width: 100%;
+    height: 320px;
+    margin: 8px 0 28px;
+    border-radius: 16px;
+    overflow: hidden;
+    background:
+      radial-gradient(ellipse at 30% 30%, rgba(233,69,96,0.18), transparent 60%),
+      radial-gradient(ellipse at 80% 80%, rgba(96,165,250,0.18), transparent 60%),
+      #0f1424;
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 0 12px 36px rgba(0,0,0,0.40);
+  }
+  .catalyst-hero canvas {
+    display: block;
+    width: 100%; height: 100%;
+  }
+  .catalyst-hero .overlay {
+    position: absolute; inset: 0;
+    padding: 28px 32px;
+    display: flex; flex-direction: column; justify-content: space-between;
+    pointer-events: none;
+    z-index: 2;
+  }
+  .catalyst-hero .tag {
+    font-size: 11px; letter-spacing: 2.4px; text-transform: uppercase;
+    color: rgba(255,255,255,0.55); font-weight: 700;
+  }
+  .catalyst-hero .tagline {
+    font-size: 24px; font-weight: 700; line-height: 1.25;
+    color: #fff; max-width: 60%;
+  }
+  .catalyst-hero .tagline span.accent {
+    background: linear-gradient(135deg, #e94560, #f0648a 60%, #ffb4c2);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .catalyst-hero .meta {
+    font-size: 13px; color: rgba(255,255,255,0.55);
+    font-family: ui-monospace, monospace;
+  }
+  @media (max-width: 720px) {
+    .catalyst-hero { height: 260px; }
+    .catalyst-hero .tagline { font-size: 18px; max-width: 75%; }
+  }
+</style>
+
+<div class="catalyst-hero" id="catalyst-hero">
+  <div class="overlay">
+    <div class="tag">Catalyst · v0.3.5.2</div>
+    <div>
+      <div class="tagline">Build a competition-ready FRC robot with <span class="accent">a handful of builder calls.</span></div>
+      <div class="meta">CTRE Phoenix 6 · WPILib 2026 · Java 17</div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  // Lazy-load Three.js from CDN inside an idle callback so it never blocks
+  // the first paint of the docs page.
+  function whenIdle(fn) {
+    if ('requestIdleCallback' in window) requestIdleCallback(fn, { timeout: 600 });
+    else setTimeout(fn, 50);
+  }
+
+  whenIdle(async () => {
+    const host = document.getElementById('catalyst-hero');
+    if (!host) return;
+    let THREE;
+    try {
+      THREE = await import('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js');
+    } catch (e) {
+      // Network is blocked / offline — leave the gradient hero in place.
+      return;
+    }
+
+    const w = host.clientWidth, h = host.clientHeight;
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 100);
+    camera.position.set(0, 0, 7);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(w, h);
+    renderer.setClearColor(0x000000, 0);
+    host.appendChild(renderer.domElement);
+
+    // Geometry — a torus knot is striking, low-poly, and matches the brand
+    // when its material is the accent gradient. The light source moves with
+    // a sin/cos sweep so the highlight crawls across the surface.
+    const geo = new THREE.TorusKnotGeometry(1.3, 0.42, 220, 32);
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0x1b2240,
+      metalness: 0.55,
+      roughness: 0.20,
+      emissive: 0xe94560,
+      emissiveIntensity: 0.06,
+    });
+    const knot = new THREE.Mesh(geo, mat);
+    scene.add(knot);
+
+    // Wireframe overlay for the geometric feel.
+    const wireMat = new THREE.MeshBasicMaterial({
+      color: 0xe94560,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.18,
+    });
+    const wire = new THREE.Mesh(geo, wireMat);
+    wire.scale.setScalar(1.02);
+    scene.add(wire);
+
+    // Lighting
+    scene.add(new THREE.AmbientLight(0x6a7088, 0.4));
+    const keyLight = new THREE.PointLight(0xff6b8a, 2.4, 18);
+    keyLight.position.set(4, 3, 4);
+    scene.add(keyLight);
+    const rimLight = new THREE.PointLight(0x60a5fa, 1.6, 20);
+    rimLight.position.set(-4, -3, 2);
+    scene.add(rimLight);
+
+    // Floating particles for depth.
+    const particleCount = 70;
+    const particleGeo = new THREE.BufferGeometry();
+    const positions = new Float32Array(particleCount * 3);
+    for (let i = 0; i < particleCount; i++) {
+      positions[i * 3 + 0] = (Math.random() - 0.5) * 14;
+      positions[i * 3 + 1] = (Math.random() - 0.5) * 8;
+      positions[i * 3 + 2] = (Math.random() - 0.5) * 8 - 2;
+    }
+    particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const particleMat = new THREE.PointsMaterial({
+      color: 0xf0648a,
+      size: 0.04,
+      transparent: true,
+      opacity: 0.5,
+      sizeAttenuation: true,
+    });
+    const particles = new THREE.Points(particleGeo, particleMat);
+    scene.add(particles);
+
+    // Mouse-follow rotation. Touch hover area is the hero box.
+    let targetX = 0, targetY = 0;
+    let actualX = 0, actualY = 0;
+    host.addEventListener('mousemove', (e) => {
+      const r = host.getBoundingClientRect();
+      const x = (e.clientX - r.left) / r.width - 0.5;
+      const y = (e.clientY - r.top) / r.height - 0.5;
+      targetX = x * 0.8;
+      targetY = -y * 0.8;
+    });
+    host.addEventListener('mouseleave', () => { targetX = 0; targetY = 0; });
+
+    // Resize handling
+    const resize = () => {
+      const nw = host.clientWidth, nh = host.clientHeight;
+      renderer.setSize(nw, nh);
+      camera.aspect = nw / nh;
+      camera.updateProjectionMatrix();
+    };
+    new ResizeObserver(resize).observe(host);
+
+    // Pause animation when off-screen.
+    let visible = true;
+    new IntersectionObserver((entries) => {
+      visible = entries[0].isIntersecting;
+    }).observe(host);
+
+    // Respect "reduced motion" by greatly slowing the animation.
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const speed = reduceMotion ? 0.2 : 1.0;
+
+    let t = 0;
+    function frame() {
+      if (visible) {
+        t += 0.008 * speed;
+        actualX += (targetX - actualX) * 0.06;
+        actualY += (targetY - actualY) * 0.06;
+        knot.rotation.x = t * 0.6 + actualY;
+        knot.rotation.y = t * 0.9 + actualX;
+        wire.rotation.copy(knot.rotation);
+        keyLight.position.x = Math.cos(t * 1.2) * 4;
+        keyLight.position.z = Math.sin(t * 1.2) * 4;
+        particles.rotation.y = t * 0.03;
+        renderer.render(scene, camera);
+      }
+      requestAnimationFrame(frame);
+    }
+    frame();
+  });
+</script>
