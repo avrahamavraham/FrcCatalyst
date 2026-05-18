@@ -78,7 +78,7 @@ Seven single-file browser tools, hosted right here. Nothing to install.
 <a class="tool-card" href="builder/">
   <div class="icon">🛠️</div>
   <p class="name">Builder</p>
-  <p class="desc">Fill out a form, paste the generated Java into your subsystem. Persists across reloads, can emit a full <code>SubsystemBase</code>, can import an existing snippet.</p>
+  <p class="desc">One-click presets for elevator, arm, shooter, intake, climber, claw, diffy wrist, piston. Persistence, <code>.java</code> download, full-subsystem-class mode, snippet import.</p>
   <span class="tag gen">Generator</span>
 </a>
 

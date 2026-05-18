@@ -57,6 +57,36 @@
       color: var(--muted); font-weight: 700;
     }
     .mech-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 18px; }
+
+    /* ---------- Quick-start presets ---------- */
+    .preset-list {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+      margin-bottom: 18px;
+    }
+    .preset-btn-card {
+      display: flex; flex-direction: column; align-items: flex-start;
+      padding: 8px 10px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer; color: var(--text);
+      font-family: inherit;
+      transition: transform 0.12s ease, border-color 0.12s ease,
+                  background 0.12s ease;
+      text-align: left;
+    }
+    .preset-btn-card:hover {
+      transform: translateY(-1px);
+      border-color: var(--accent);
+      background: rgba(233,69,96,0.06);
+    }
+    .preset-btn-card .pname {
+      font-weight: 700; font-size: 12px; color: var(--accent2);
+    }
+    .preset-btn-card .pmech {
+      font-size: 10px; color: var(--muted);
+      margin-top: 2px;
+    }
     .mech-btn {
       display: block; width: 100%; text-align: left;
       background: transparent; color: var(--text);
@@ -215,20 +245,27 @@
 
 <header>
   <h1>Catalyst Builder</h1>
-  <span class="badge" id="version">v0.3.5.1</span>
+  <span class="badge" id="version">v0.3.6</span>
   <span class="hint">Generate ready-to-paste mechanism config code.</span>
 </header>
 
 <main>
   <aside>
+    <h2>Quick start</h2>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">
+      One click fills the form with recommended values for a typical subsystem.
+    </div>
+    <div class="preset-list" id="presetList"></div>
+
     <h2>Mechanism</h2>
     <div class="mech-list" id="mechList"></div>
 
-    <h2>Quick reference</h2>
-    <div style="font-size:12px;color:var(--muted);line-height:1.6;">
-      Fill the form on the right and the Java config builder updates live.
-      Copy the snippet into your subsystem's constructor and tweak from there.
-      All field defaults match the library defaults — leave a field empty to omit the builder call.
+    <h2>Tips</h2>
+    <div style="font-size:12px;color:var(--muted);line-height:1.55;">
+      Fill the form and the Java updates live. Empty fields are omitted from
+      the builder, so the library's own defaults apply. Click <b>Full subsystem
+      class</b> in the preview header to wrap the snippet in a
+      <code>SubsystemBase</code>.
     </div>
   </aside>
 
@@ -563,6 +600,145 @@
     "NEO", "NEO_VORTEX", "NEO_550", "MINION",
   ];
 
+  // ============================================================
+  // One-click subsystem presets
+  //
+  // Each preset is a fully-filled-in configuration for a common FRC
+  // pattern. Clicking a preset switches to the right mechanism type
+  // and populates every field with the recommended starting value
+  // matching the corresponding section in docs/mechanisms/.
+  //
+  // Add new presets here — schema is { label, sub, mech, state, followers }.
+  // ============================================================
+  const PRESETS = {
+    "elevator": {
+      label: "Elevator", sub: "Linear · 2 motor",
+      mech: "linear",
+      state: {
+        name: "Elevator",
+        motor: 10, motorType: "KRAKEN_X60",
+        gearRatio: 10.0, drumRadius: 0.0254,
+        minPos: 0.0, maxPos: 1.2,
+        currentLimit: 40, statorCurrentLimit: 80,
+        tolerance: 0.01,
+        kP: 50, kI: 0, kD: 0.5,
+        kS: 0.10, kV: 1.2, kA: 0,
+        kG: 0.35,
+        mmCruise: 2.0, mmAccel: 4.0, mmJerk: 20.0,
+      },
+      followers: { followers: [{ canId: 11, oppose: true }] },
+    },
+    "arm": {
+      label: "Arm", sub: "Rotational · w/ cosine gravity",
+      mech: "rotational",
+      state: {
+        name: "Arm",
+        motor: 20, motorType: "KRAKEN_X60",
+        gearRatio: 100.0,
+        minPos: -90, maxPos: 90,
+        currentLimit: 30, statorCurrentLimit: 60,
+        tolerance: 1.0,
+        kP: 12, kI: 0, kD: 0.4,
+        kS: 0.20, kV: 0.7, kA: 0,
+        kG: 0.45,
+        mmCruise: 1.0, mmAccel: 2.0, mmJerk: 10.0,
+      },
+      followers: { followers: [{ canId: 21, oppose: false }] },
+    },
+    "shooter": {
+      label: "Shooter", sub: "Flywheel · top + bottom",
+      mech: "flywheel",
+      state: {
+        name: "Shooter",
+        motor: 30, secondMotor: 32,
+        motorType: "KRAKEN_X60",
+        gearRatio: 1.0,
+        moi: 0.01,
+        tolerance: 3.0,
+        currentLimit: 60, statorCurrentLimit: 120,
+        kP: 0.4, kI: 0, kD: 0,
+        kS: 0.08, kV: 0.12, kA: 0,
+      },
+      followers: {
+        primaryFollowers:   [{ canId: 31, oppose: true }],
+        secondaryFollowers: [{ canId: 33, oppose: true }],
+      },
+    },
+    "intake": {
+      label: "Intake", sub: "Roller · beam-break",
+      mech: "roller",
+      state: {
+        name: "Intake",
+        motor: 40,
+        inverted: false, brakeMode: false,
+        currentLimit: 40, statorCurrentLimit: 80,
+        intakeVoltage: 6.0, outtakeVoltage: -4.0, holdVoltage: 1.0,
+        beamBreak: 0,
+      },
+      followers: {},
+    },
+    "climber": {
+      label: "Climber", sub: "Winch · dual arm",
+      mech: "winch",
+      state: {
+        name: "Climber",
+        motor: 50, secondMotor: 51,
+        inverted: false, secondInverted: false,
+        gearRatio: 25.0, spoolRadius: 0.02,
+        minPos: 0, maxPos: 0.6,
+        currentLimit: 80, statorCurrentLimit: 120,
+        extendSpeed: 0.8, retractSpeed: -1.0,
+      },
+      followers: {},
+    },
+    "claw": {
+      label: "Game-piece claw", sub: "Claw · stall + beam-break",
+      mech: "claw",
+      state: {
+        name: "Claw",
+        motor: 60,
+        inverted: false, brakeMode: true,
+        currentLimit: 30, statorCurrentLimit: 60,
+        closeVoltage: 6.0, openVoltage: -4.0, holdVoltage: 1.5,
+        stallAmps: 25, stallTime: 0.2,
+        beamBreak: 1,
+      },
+      followers: { followers: [{ canId: 61, oppose: true }] },
+    },
+    "diffwrist": {
+      label: "Diffy wrist", sub: "Pitch + roll, native CTRE",
+      mech: "diffwrist",
+      state: {
+        name: "Wrist",
+        leftMotor: 70, rightMotor: 71,
+        leftInverted: false, rightInverted: false,
+        gearRatio: 20.0,
+        minPitch: -90, maxPitch: 90,
+        minRoll: -180, maxRoll: 180,
+        currentLimit: 30, statorCurrentLimit: 60,
+        tolerance: 2.0,
+        kP: 40, kI: 0, kD: 0.5,
+        kS: 0, kV: 0, kA: 0,
+        diffKP: 30, diffKI: 0, diffKD: 0.3,
+        mmCruise: 50, mmAccel: 100, mmJerk: 500,
+      },
+      followers: {},
+    },
+    "piston": {
+      label: "Piston", sub: "Pneumatic · double solenoid",
+      mech: "pneumatic",
+      state: {
+        name: "Piston",
+        moduleType: "REVPH",
+        isDouble: true,
+        forwardChannel: 0, reverseChannel: 1,
+        attachCompressor: true,
+        minPressurePSI: 40,
+      },
+      followers: {},
+    },
+  };
+
   let currentMech = "linear";
   const formState = {}; // { mechId: { fieldId: value } }
   const FOLLOWER_STATE = {}; // { mechId: { fieldId: [{canId, oppose}] } }
@@ -616,6 +792,44 @@
       btn.onclick = () => { currentMech = id; buildSidebar(); buildForm(); render(); };
       list.appendChild(btn);
     });
+    buildPresetList();
+  }
+
+  function buildPresetList() {
+    const list = document.getElementById("presetList");
+    if (!list) return;
+    list.innerHTML = "";
+    Object.entries(PRESETS).forEach(([id, preset]) => {
+      const btn = document.createElement("button");
+      btn.className = "preset-btn-card";
+      btn.innerHTML =
+        `<span class="pname">${preset.label}</span>` +
+        `<span class="pmech">${preset.sub}</span>`;
+      btn.onclick = () => applyPreset(id);
+      list.appendChild(btn);
+    });
+  }
+
+  function applyPreset(presetId) {
+    const preset = PRESETS[presetId];
+    if (!preset) return;
+    // Confirm overwrite if the user has typed anything into that mechanism.
+    const target = preset.mech;
+    const existing = formState[target];
+    if (existing && Object.keys(existing).length > 0) {
+      if (!confirm(`Replace the current ${SCHEMA[target].label} fields with the "${preset.label}" preset?`)) {
+        return;
+      }
+    }
+    currentMech = target;
+    formState[target] = { ...preset.state };
+    FOLLOWER_STATE[target] = {};
+    Object.entries(preset.followers || {}).forEach(([key, list]) => {
+      FOLLOWER_STATE[target][key] = list.map(f => ({ ...f }));
+    });
+    buildSidebar();
+    buildForm();
+    render();
   }
 
   function buildForm() {
