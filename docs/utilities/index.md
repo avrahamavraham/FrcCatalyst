@@ -222,9 +222,148 @@ boolean state = stallDetector.get();
 
 ---
 
+## HealthCheck + HealthMonitor
+
+The fault-monitoring kit added in v0.3.3 wires a debounced health check
+layer into every Catalyst mechanism by default. Every motor-driven
+mechanism automatically registers `OverCurrent`, `HighTemp`, and
+`OverTemp` checks; the `OverTemp` check auto-calls `motor.stop()` when
+it fires. Teams add their own with one fluent call:
+
+```java
+HealthCheck.builder("Climber", "RopeSlack")
+    .severity(HealthCheck.Severity.WARN)
+    .description("Climber rope slack detected")
+    .when(() -> tensionSensor.getNewtons() < 5)
+    .detail(() -> String.format("%.0f N", tensionSensor.getNewtons()))
+    .debounce(0.5)
+    .clearAfter(2.0)
+    .onFire(() -> driver.rumble(0.5))
+    .register();
+```
+
+State publishes to `/Catalyst/Health/<subsystem>/<id>/...` for any NT
+dashboard, and every fire/clear edge is forwarded to the legacy
+`AlertManager` so existing integrations keep working. Full guide:
+[Health Monitoring](../advanced/health.html).
+
+## HealthHistory
+
+Ring buffer of recent fire/clear events (default 100). Automatically
+fed by `HealthMonitor` and published as a string array at
+`/Catalyst/Health/History` for the Health Dashboard's timeline view.
+Queryable from team code for post-match triage:
+
+```java
+for (HealthHistory.Event e : HealthHistory.snapshot()) {
+    System.out.println(e);   // newest first
+}
+
+HealthHistory.setCapacity(250);  // bigger buffer for long matches
+```
+
+Each `Event` carries `timestamp`, `subsystem`, `id`, `severity`, `kind`
+(FIRED / CLEARED), and the live `detail` string at the moment of
+transition.
+
+## RobotSafety
+
+Opt-in cross-mechanism watchdog driven by `HealthMonitor`. When too
+many `ERROR`-severity (or, optionally, `WARN`) health checks fire
+simultaneously the safety layer "trips" — a single boolean teams can
+read to bail out of teleop / auto. Catalyst never forcibly disables
+motors itself; the trip is advisory so each team decides what
+"all-stop" means for their robot.
+
+```java
+public void robotInit() {
+    RobotSafety.configure(
+        RobotSafety.Config.builder()
+            .maxConcurrentErrors(2)   // trip when 2+ ERROR checks fire at once
+            .debounce(0.25)           // sustained for at least 0.25 s
+            .onTrip(() -> {
+                drive.stop();
+                superstructure.stow();
+                leds.fire();
+            })
+            .build());
+}
+
+// Read the signal anywhere:
+RobotSafety.trippedTrigger().onTrue(drive.stopCommand());
+
+// Or in any subsystem:
+if (RobotSafety.isTripped()) { /* ... */ }
+```
+
+State publishes to `/Catalyst/Safety/{Tripped,Reason,ErrorCount,WarnCount}`
+so the [Health Dashboard](../tools/) lights up when it fires. Manual
+`RobotSafety.reset()` clears the trip; or pass `.autoReset(seconds)` to
+the builder.
+
+## MotorType
+
+Spec sheet for an FRC motor — stall torque, free speed, current draw —
+used by simulation models, `MotionConstraintCalculator`, and gravity
+feedforward helpers. Pre-shipped presets:
+
+| Preset | Notes |
+|---|---|
+| `KRAKEN_X60`, `KRAKEN_X60_FOC` | FOC variant gets the proper +30% stall torque |
+| `KRAKEN_X44`, `KRAKEN_X44_FOC` | Compact Kraken (added in v0.3.3) |
+| `FALCON_500`, `FALCON_500_FOC` | Phoenix-Pro FOC variant available |
+| `NEO`, `NEO_VORTEX`, `NEO_550` | REV brushless line (sim/physics only — not Phoenix-controllable) |
+| `MINION` | WCP Minion |
+
+```java
+LinearMechanism.Config.builder()
+    .motorType(MotorType.KRAKEN_X60_FOC)
+    .motorCount(2)
+    // ...
+    .build();
+```
+
+`MotorType` is a regular `final class` (not an enum) with a public
+constructor, so teams can ship their own preset for anything Catalyst
+doesn't include:
+
+```java
+MotorType custom = new MotorType(
+    "Custom Motor",
+    3.2,    // stall torque (Nm)
+    7200,   // free speed (RPM)
+    230,    // stall current (A)
+    1.6);   // free current (A)
+```
+
+> ⚠️ The pre-v0.3.3 FOC presets had the same stall torque as their
+> non-FOC counterparts (Phoenix-6 FOC actually delivers ~30% more
+> torque). If you used `KRAKEN_X60_FOC` or `FALCON_500_FOC` for
+> gravity feedforward in 0.3.2 or earlier and hand-tuned `kG`, re-check
+> the value after upgrading.
+
+## TunableNumber + TunableGains
+
+Live-tunable doubles backed by NetworkTables. `TunableNumber` is a
+single `double` with a known default; `TunableGains` bundles every
+Slot 0 gain + Motion Magic constant for a mechanism. Both are
+internally cached so reading is cheap. See [Live Tuning](../advanced/tuning.html)
+for the full story.
+
+```java
+TunableNumber shooterRPS = new TunableNumber("Catalyst/Tuning/Shooter/TargetRPS", 60.0);
+shooter.spinUp(shooterRPS.get());
+
+// For comp: lock everything in one call.
+TunableNumber.disableTuning();
+```
+
+---
+
 ## Advanced Utilities
 
-FrcCatalyst also includes advanced utilities used by top FRC teams. See the [Advanced](../advanced/) section for:
+FrcCatalyst also includes advanced utilities that successful teams build
+in-house every season. See the [Advanced](../advanced/) section for:
 
 | Utility | Description |
 |---------|-------------|

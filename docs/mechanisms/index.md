@@ -16,7 +16,7 @@ has_children: true
 
 ---
 
-FrcCatalyst provides five generic mechanism types that cover virtually every FRC subsystem. Each mechanism extends `CatalystMechanism` (which extends WPILib's `SubsystemBase`) and provides:
+FrcCatalyst provides eight generic mechanism types that cover virtually every FRC subsystem. Each mechanism extends `CatalystMechanism` (which extends WPILib's `SubsystemBase`) and provides:
 
 - **Builder-pattern configuration** with validation and sensible defaults
 - **Two control modes**: CTRE Motion Magic (on TalonFX) or WPILib ProfiledPID (on roboRIO)
@@ -24,7 +24,9 @@ FrcCatalyst provides five generic mechanism types that cover virtually every FRC
 - **Gravity compensation** (constant for elevator, cosine for arm)
 - **Built-in simulation** using accurate WPILib DCMotor models
 - **Automatic telemetry** published to NetworkTables under `Catalyst/<name>/`
-- **Safety features**: temperature cutoff, limit switch auto-zeroing, soft limits
+- **Built-in health monitoring** — every motor-driven mechanism auto-registers `OverCurrent`, `HighTemp`, and `OverTemp` checks with sensible debouncing. See [Health Monitoring](../advanced/health.html).
+- **Live-tunable gains** — Slot 0 PID and Motion Magic constants are exposed under `Catalyst/Tuning/...` by default. See [Live Tuning](../advanced/tuning.html).
+- **Multi-follower support** — every motor-driven mechanism accepts an arbitrary number of follower motors on the primary shaft (and on the secondary shaft, for Flywheel).
 - **Pre-built command factories**: goTo, goToAndWait, holdPosition, jog, zero
 
 ## Mechanism Types
@@ -36,6 +38,135 @@ FrcCatalyst provides five generic mechanism types that cover virtually every FRC
 | [FlywheelMechanism](flywheel) | Shooters, accelerator wheels | RPS (velocity) | Velocity PID |
 | [RollerMechanism](roller) | Intakes, conveyors, indexers | N/A (duty cycle) | Open-loop + detection |
 | [WinchMechanism](winch) | Climbers, deployments | Meters | Duty cycle + limits |
+| [ClawMechanism](claw) | Motor-driven grippers | N/A (duty cycle) | Open-loop + stall / beam-break |
+| [DifferentialWristMechanism](diffwrist) | Diffy wrists (2-motor pitch+roll) | Degrees (pitch, roll) | Phoenix-6 native differential Motion Magic |
+| [PneumaticMechanism](pneumatic) | Solenoids / pistons | FORWARD / REVERSE / OFF | DoubleSolenoid + optional pressure gate |
+
+## DifferentialWristMechanism
+
+A two-motor differential wrist (a.k.a. "diffy wrist") where sum of motor rotations
+controls pitch and difference controls roll. Catalyst drives this through
+**Phoenix-6's native differential control**: the left motor is the differential
+master running `DifferentialMotionMagicVoltage`; the right is configured as a
+`DifferentialFollower`. Both targets ship in a single CAN frame and stay
+coordinated at firmware level.
+
+```java
+DifferentialWristMechanism wrist = new DifferentialWristMechanism(
+    DifferentialWristMechanism.Config.builder()
+        .name("Wrist")
+        .leftMotor(40)     // becomes differential master
+        .rightMotor(41)    // becomes differential follower
+        .gearRatio(20.0)
+        .pitchRange(-90, 90)
+        .rollRange(-180, 180)
+        .pid(40, 0, 0.5)              // Slot 0 → pitch (average) axis
+        .differentialPid(30, 0, 0.3)  // Slot 1 → roll  (differential) axis (optional)
+        .motionMagic(50, 100, 500)
+        .currentLimit(40)
+        .position("STOW", 0, 0)
+        .position("SCORE", 60, 90)
+        .build());
+
+controller.a().onTrue(wrist.goTo("SCORE"));
+```
+
+Slot 1 gains are live-tunable at `/Catalyst/Tuning/<Name>/Diff/...` alongside
+the existing Slot 0 tunables. If `.differentialPid(...)` isn't called the
+differential controller uses the same gains as the average controller —
+fine for symmetric wrists, suboptimal for ones where roll has very different
+inertia from pitch.
+
+## ClawMechanism
+
+Motor-driven gripper with stall-current grip detection and an optional
+beam-break sensor. The "closing" voltage drops to a low passive "holding"
+voltage automatically once a piece is detected — the motor isn't asked to
+keep squeezing.
+
+```java
+ClawMechanism claw = new ClawMechanism(
+    ClawMechanism.Config.builder()
+        .name("Claw")
+        .motor(30)
+        .follower(31, true)     // mirrored follower
+        .follower(32, true)     // multi-follower supported
+        .closeVoltage(6.0)
+        .openVoltage(-4.0)
+        .holdVoltage(1.5)
+        .stallDetection(25.0, 0.2)   // 25 A for 0.2 s → has piece
+        .beamBreak(0)
+        .currentLimit(40)
+        .build());
+
+controller.a().onTrue(claw.closeUntilGripped());
+controller.b().onTrue(claw.open());
+```
+
+Use `PneumaticMechanism` instead for pneumatic claws.
+
+## PneumaticMechanism
+
+Single or double solenoid wrapped as a Catalyst mechanism with logging,
+command factories, optional pressure gating, and the Health Kit integration
+every other mechanism gets.
+
+```java
+PneumaticMechanism climbHook = new PneumaticMechanism(
+    PneumaticMechanism.Config.builder()
+        .name("ClimbHook")
+        .doubleSolenoid(PneumaticsModuleType.REVPH, 0, 1)
+        .compressor(PneumaticsModuleType.REVPH)
+        .requirePressureAbove(40.0)  // refuse to actuate below 40 psi
+        .build());
+
+controller.x().onTrue(climbHook.extend());
+controller.y().onTrue(climbHook.retract());
+operator.b().onTrue(climbHook.pulse(0.25));    // kicker pattern
+```
+
+When `requirePressureAbove(psi)` is set and a compressor with an analog
+pressure sensor is wired, the mechanism refuses to drive forward below the
+threshold (raising an alert rather than firing a piston dry).
+
+## Multi-follower configuration
+
+Every motor-driven mechanism accepts repeated `.follower(canId, oppose)`
+calls — pass `oppose = true` for mirrored followers (e.g. arms or
+double-stacked motors). The Flywheel mechanism splits this into
+`.primaryFollower(...)` / `.secondaryFollower(...)` so each independently-
+controlled wheel can have its own follower set.
+
+```java
+// Three-motor climber: master + two followers
+WinchMechanism climber = new WinchMechanism(
+    WinchMechanism.Config.builder()
+        .name("Climber")
+        .motor(25)
+        .secondMotor(26)    // independent second arm
+        // (use .secondMotor for an independent second motor;
+        //  use .follower(...) on Claw/Linear/Rotational for ganged motors)
+        .build());
+
+// Two-motor-per-side intake claw
+ClawMechanism intake = new ClawMechanism(
+    ClawMechanism.Config.builder()
+        .motor(30).follower(31, true)
+        .build());
+
+// Dual flywheel with two motors per wheel
+FlywheelMechanism shooter = new FlywheelMechanism(
+    FlywheelMechanism.Config.builder()
+        .motor(50)
+        .primaryFollower(51, true)
+        .secondMotor(52)
+        .secondaryFollower(53, true)
+        .build());
+```
+
+Each follower automatically gets its own `OverCurrent` and `HighTemp`
+health checks so a smoking follower is just as visible on the Health
+Dashboard as a smoking primary.
 
 ## SuperstructureCoordinator
 

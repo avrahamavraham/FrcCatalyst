@@ -61,11 +61,14 @@ Pre-built, configurable mechanism types that cover virtually every FRC subsystem
 
 | Mechanism | Use Case | Key Features |
 |-----------|----------|--------------|
-| **LinearMechanism** | Elevators, slides | Position control, gravity FF, limit switches |
-| **RotationalMechanism** | Arms, wrists, turrets | Cosine gravity, hard stops, Motion Magic |
-| **FlywheelMechanism** | Shooters | Dual motor, velocity PID, at-speed trigger |
+| **LinearMechanism** | Elevators, slides | Position control, gravity FF, limit switches, multi-follower |
+| **RotationalMechanism** | Arms, wrists, turrets | Cosine gravity, hard stops, Motion Magic, multi-follower |
+| **FlywheelMechanism** | Shooters | Dual motor + per-shaft followers, velocity PID, at-speed trigger |
 | **RollerMechanism** | Intakes, conveyors | Stall detection, beam break, auto-stop |
-| **WinchMechanism** | Climbers | Extend/retract limits, position tracking |
+| **WinchMechanism** | Climbers | Extend/retract limits, position tracking, dual-arm support |
+| **ClawMechanism** | Motor-driven grippers | Stall detection, beam break, multi-follower, passive-hold |
+| **DifferentialWristMechanism** | Diffy wrists (pitch + roll) | **Phoenix-6 native differential control**, separate Slot 0 / Slot 1 tuning |
+| **PneumaticMechanism** | Solenoids / pistons | Double or single solenoid, optional pressure-gating, pulse / toggle commands |
 | **SuperstructureCoordinator** | Multi-mechanism | State machine with safe transitions |
 
 ### Subsystems
@@ -93,6 +96,21 @@ Advanced control and estimation features:
 | **Skew Correction** | Pose exponential discretization for swerve |
 | **Collision Zones** | Prevent physical mechanism collisions |
 
+### Health & Safety (v0.3.3+)
+
+| Feature | Description |
+|---------|-------------|
+| **HealthCheck / HealthMonitor** | Debounced INFO / WARN / ERROR check layer — every motor mechanism gets OverCurrent / HighTemp / OverTemp checks for free |
+| **HealthHistory** | Ring buffer of recent fire/clear events, queryable + auto-published for the dashboard timeline |
+| **RobotSafety** | Opt-in cross-mechanism watchdog with `trippedTrigger()` for one-line Command bindings |
+| **MotorType** | Open class with NEO / Vortex / 550 / Minion / Kraken (incl. X44 and corrected FOC specs) presets — and a public constructor for your own |
+
+### Browser Tools (live on this site)
+
+- 🛠️ **[Catalyst Builder](tools/builder/)** — form-driven Java config generator with localStorage persistence, `.java` download, full-subsystem-class mode, and snippet import
+- 🎚 **[Catalyst Tuner](tools/tuner/)** — NT4 PID + Motion Magic tuner with gains-snapshot JSON export
+- 🩺 **[Health Dashboard](tools/health/)** — live `/Catalyst/Health/` viewer with severity filters, search, and report download
+
 ### Every Mechanism Includes
 
 - Builder-pattern configuration with sensible defaults
@@ -100,8 +118,9 @@ Advanced control and estimation features:
 - Named position presets (`goTo("STOW")`)
 - Built-in simulation with accurate motor models
 - Automatic NetworkTables telemetry
-- Temperature cutoff and limit switch safety
+- Temperature cutoff, limit switch safety, and **HealthCheck-based fault monitoring**
 - Pre-built command factories
+- **Multi-follower support** (one builder call per follower)
 
 ---
 
@@ -111,10 +130,11 @@ Advanced control and estimation features:
 |---------|-------------|
 | [Installation](getting-started/installation) | Add FrcCatalyst to your project |
 | [Quick Start](getting-started/quickstart) | Build your first mechanism in 5 minutes |
-| [Mechanisms](mechanisms/) | LinearMechanism, RotationalMechanism, Flywheel, Roller, Winch |
+| [Mechanisms](mechanisms/) | Linear, Rotational, Flywheel, Roller, Winch, Claw, **Differential Wrist (native CTRE)**, **Pneumatic** |
 | [Subsystems](subsystems/) | Swerve Drive, Vision, LEDs |
-| [Utilities](utilities/) | Math, feedforward, profiles, alerts |
-| [Advanced](advanced/) | State-space control, signal processing, dynamic paths |
+| [Utilities](utilities/) | Feedforward, profiles, alerts, **Health Kit**, **RobotSafety**, **MotorType** |
+| [Advanced](advanced/) | State-space control, signal processing, dynamic paths, **Live Tuning**, **Health Monitoring** |
+| [Tools](tools/) | **Catalyst Builder**, **Tuner**, **Health Dashboard** — live on this site |
 | [Examples](examples/) | Complete robot examples with elevator, intake, and more |
 | [Testing](testing/) | How to test your FrcCatalyst-based code |
 

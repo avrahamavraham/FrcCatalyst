@@ -132,11 +132,16 @@ public void robotInit() {
 }
 ```
 
-Then read the signal from anywhere:
+Then read the signal from anywhere. The shorthand `trippedTrigger()`
+helper (added in v0.3.5.1) returns a WPILib `Trigger` ready for
+binding:
 
 ```java
-new Trigger(RobotSafety::isTripped)
-    .onTrue(Commands.runOnce(drive::stop, drive));
+// Idiomatic — bind directly in configureBindings():
+RobotSafety.trippedTrigger().onTrue(drive.stopCommand());
+
+// Or check the flag manually inside any subsystem:
+if (RobotSafety.isTripped()) { /* ... */ }
 ```
 
 The watchdog publishes to `/Catalyst/Safety/{Tripped,Reason,ErrorCount,WarnCount}`
@@ -147,6 +152,35 @@ checks have stayed clear.
 
 The library never forcibly disables motors itself — the trip is advisory.
 Each team decides what "all-stop" means for their robot.
+
+## Event history: `HealthHistory` (v0.3.5.1+)
+
+Beyond the live state, Catalyst keeps a ring buffer of recent fire / clear
+edges. The buffer holds the last 100 events by default and is fed
+automatically by `HealthMonitor` — no extra wiring needed.
+
+```java
+// Newest event first. Each Event has a timestamp, subsystem, id,
+// severity, kind (FIRED / CLEARED), and the live detail string from
+// the moment of transition.
+for (HealthHistory.Event e : HealthHistory.snapshot()) {
+    System.out.println(e);
+}
+
+// Bigger buffer for a long elimination match.
+HealthHistory.setCapacity(250);
+
+// Reset between matches (mostly useful in unit tests).
+HealthHistory.clear();
+```
+
+The buffer also publishes to `/Catalyst/Health/History` as a string array
+(pipe-delimited fields). The Health Dashboard surfaces this as the
+"recent events" timeline so anyone in the pit can see what went hot
+five seconds ago.
+
+The serialization format is intentionally simple — `timestamp|kind|severity|subsystem|id|detail`
+per entry — so a small script can ingest it for post-match triage.
 
 ## Severity rules of thumb
 
