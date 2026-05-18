@@ -1,126 +1,163 @@
 <!-- Catalyst custom polish layered on top of just-the-docs -->
 <style>
   :root {
-    --catalyst-accent: #e94560;
-    --catalyst-accent-2: #f0648a;
-    --catalyst-blue: #60a5fa;
-    --catalyst-green: #4ade80;
-    --catalyst-amber: #fbbf24;
+    --catalyst-accent:    #e94560;
+    --catalyst-accent-2:  #f0648a;
+    --catalyst-accent-d:  #c0314e;
+    --catalyst-blue:      #60a5fa;
+    --catalyst-green:     #4ade80;
+    --catalyst-amber:     #fbbf24;
+    --catalyst-panel:     rgba(255,255,255,0.04);
+    --catalyst-border:    rgba(255,255,255,0.08);
   }
 
-  /* ----- Subtle aurora background on the dark theme ----- */
-  html.dark, body.dark, body[data-theme="dark"], body {
+  /* ---------- Background aurora ---------- */
+  body {
     background-image:
-      radial-gradient(900px 600px at 110% -10%, rgba(233,69,96,0.08), transparent 60%),
-      radial-gradient(800px 600px at -10% 110%, rgba(96,165,250,0.07), transparent 60%);
+      radial-gradient(900px 600px at 110% -10%, rgba(233,69,96,0.06), transparent 60%),
+      radial-gradient(800px 600px at -10% 110%, rgba(96,165,250,0.05), transparent 60%);
   }
 
-  /* ----- Bigger, glowier page titles ----- */
+  /* ---------- Page titles ---------- */
   .main-content h1:first-child {
-    background: linear-gradient(135deg, var(--catalyst-accent), var(--catalyst-accent-2) 60%, #ffb4c2);
+    background: linear-gradient(135deg, #e94560 0%, #f0648a 55%, #ffd6e0 100%);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.025em;
+    font-weight: 800;
   }
 
-  /* ----- Primary buttons with 3D-feel depth ----- */
-  .btn-primary {
-    background: linear-gradient(135deg, var(--catalyst-accent), #ff6b8a) !important;
-    border: 0 !important;
+  /* ---------- Top page-action buttons (.btn / .btn-primary) ---------- */
+  /* These are the buttons on the homepage and other landing pages. The
+     just-the-docs defaults are pill-shaped + colourful; we drop the
+     gradient in favour of a sharper, flatter look that matches the
+     dark-theme aesthetic. */
+  .main-content .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    height: 40px; padding: 0 18px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: 0.01em;
+    transition: transform 0.12s ease, border-color 0.12s ease,
+                background-color 0.12s ease, box-shadow 0.12s ease;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.03);
+    color: inherit !important;
+    box-shadow: none !important;
+  }
+  .main-content .btn:hover {
+    transform: translateY(-1px);
+    border-color: rgba(255,255,255,0.28);
+    background: rgba(255,255,255,0.06);
+    text-decoration: none;
+  }
+
+  /* Primary = solid accent, no gaudy gradient. */
+  .main-content .btn-primary {
+    background: var(--catalyst-accent) !important;
+    border-color: var(--catalyst-accent) !important;
     color: #fff !important;
-    box-shadow: 0 6px 14px rgba(233,69,96,0.35), inset 0 1px 0 rgba(255,255,255,0.15) !important;
-    transition: transform 0.12s ease, box-shadow 0.12s ease !important;
   }
-  .btn-primary:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 20px rgba(233,69,96,0.45), inset 0 1px 0 rgba(255,255,255,0.2) !important;
-  }
-  .btn-outline {
-    border: 1px solid rgba(255,255,255,0.18) !important;
-    transition: transform 0.12s ease, border-color 0.12s ease !important;
-  }
-  .btn-outline:hover {
-    transform: translateY(-2px);
+  .main-content .btn-primary:hover {
+    background: var(--catalyst-accent-2) !important;
     border-color: var(--catalyst-accent-2) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px rgba(233,69,96,0.25) !important;
   }
 
-  /* ----- Tables with softer chrome ----- */
+  .main-content .btn-outline {
+    border-color: rgba(255,255,255,0.16) !important;
+    background: transparent !important;
+  }
+  .main-content .btn-outline:hover {
+    border-color: var(--catalyst-accent-2) !important;
+    color: var(--catalyst-accent-2) !important;
+  }
+
+  /* ---------- Aux nav (top right) ---------- */
+  /* Make the Tools / Releases / GitHub buttons consistent + understated. */
+  .aux-nav-list .aux-nav-list-item .site-button {
+    height: 32px;
+    padding: 0 12px;
+    border-radius: 8px;
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.12);
+    color: inherit;
+    font-weight: 500;
+    font-size: 13px;
+    margin-right: 6px;
+    transition: all 0.12s ease;
+  }
+  .aux-nav-list .aux-nav-list-item .site-button:hover {
+    background: rgba(255,255,255,0.06);
+    border-color: rgba(255,255,255,0.28);
+    color: inherit;
+  }
+  /* The first aux link (Tools) gets the accent treatment. */
+  .aux-nav-list .aux-nav-list-item:first-child .site-button {
+    background: var(--catalyst-accent);
+    border-color: var(--catalyst-accent);
+    color: #fff;
+  }
+  .aux-nav-list .aux-nav-list-item:first-child .site-button:hover {
+    background: var(--catalyst-accent-2);
+    border-color: var(--catalyst-accent-2);
+    box-shadow: 0 4px 10px rgba(233,69,96,0.25);
+  }
+
+  /* ---------- Tables ---------- */
   .main-content table {
     border-collapse: separate;
     border-spacing: 0;
     border-radius: 10px;
     overflow: hidden;
-    border: 1px solid rgba(255,255,255,0.07);
+    border: 1px solid var(--catalyst-border);
   }
   .main-content table th {
-    background: rgba(255,255,255,0.04);
-    border-bottom: 1px solid rgba(255,255,255,0.08);
+    background: var(--catalyst-panel);
+    border-bottom: 1px solid var(--catalyst-border);
     text-transform: uppercase;
     letter-spacing: 0.5px;
     font-size: 12px;
+    font-weight: 700;
   }
   .main-content table tr:hover td {
     background: rgba(233,69,96,0.04);
   }
 
-  /* ----- Code blocks ----- */
+  /* ---------- Code blocks ---------- */
   .main-content pre.highlight,
   .main-content figure.highlight {
     border-radius: 10px;
-    border: 1px solid rgba(255,255,255,0.07);
+    border: 1px solid var(--catalyst-border);
     box-shadow: 0 6px 14px rgba(0,0,0,0.28);
   }
-  .main-content code {
-    color: var(--catalyst-accent-2);
-  }
+  .main-content :not(pre) > code { color: var(--catalyst-accent-2); }
 
-  /* ----- Tool cards with subtle 3D hover ----- */
+  /* ---------- Hover-lift cards (used by .tool-card and .hero-tool) ---------- */
   .hero-tools, .tool-grid { perspective: 1000px; }
   .hero-tool, .tool-card {
     transform-style: preserve-3d;
-    transition: transform 0.25s ease, border-color 0.2s ease, box-shadow 0.25s ease !important;
-  }
-  .hero-tool:hover, .tool-card:hover {
-    transform: translateY(-4px) rotateX(2deg) !important;
-    border-color: var(--catalyst-accent) !important;
-    box-shadow: 0 14px 30px rgba(0,0,0,0.35) !important;
+    transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease !important;
   }
 
-  /* ----- Side nav active item glow ----- */
+  /* ---------- Side nav ---------- */
   .nav-list .nav-list-item .nav-list-link.active {
-    background-image: linear-gradient(90deg, rgba(233,69,96,0.15), transparent 70%);
+    background-image: linear-gradient(90deg, rgba(233,69,96,0.14), transparent 70%);
     border-left: 3px solid var(--catalyst-accent);
   }
-
-  /* ----- Aux nav buttons (top-right) — make the tool links pop ----- */
-  .aux-nav-list .aux-nav-list-item .site-button {
-    border-radius: 999px;
-    padding: 4px 12px;
-    background: rgba(233,69,96,0.10);
-    border: 1px solid rgba(233,69,96,0.35);
-    color: var(--catalyst-accent-2);
-    margin-right: 6px;
-    transition: all 0.12s ease;
-  }
-  .aux-nav-list .aux-nav-list-item:last-child .site-button {
-    background: transparent;
-    border-color: rgba(255,255,255,0.18);
-    color: inherit;
-  }
-  .aux-nav-list .aux-nav-list-item .site-button:hover {
-    background: var(--catalyst-accent);
-    color: #fff;
-    border-color: var(--catalyst-accent);
-    transform: translateY(-1px);
+  .nav-list .nav-list-item .nav-list-link:hover {
+    background-color: rgba(255,255,255,0.04);
   }
 
-  /* ----- Callouts get gentle glow ----- */
-  .main-content .note { box-shadow: 0 0 0 1px rgba(96,165,250,0.25); }
-  .main-content .tip  { box-shadow: 0 0 0 1px rgba(74,222,128,0.25); }
-  .main-content .warning { box-shadow: 0 0 0 1px rgba(233,69,96,0.35); }
+  /* ---------- Callouts ---------- */
+  .main-content .note    { box-shadow: 0 0 0 1px rgba(96,165,250,0.22); }
+  .main-content .tip     { box-shadow: 0 0 0 1px rgba(74,222,128,0.22); }
+  .main-content .warning { box-shadow: 0 0 0 1px rgba(233,69,96,0.30); }
 
-  /* ----- Scrollbar polish (chromium) ----- */
+  /* ---------- Scrollbar polish (chromium) ---------- */
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {

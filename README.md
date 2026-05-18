@@ -565,5 +565,5 @@ This project is available under the [MIT License](LICENSE).
 ---
 
 <p align="center">
-  <sub>Built for the FRC community. Go build something awesome.</sub>
+  <sub>Made by an FRC team for FRC teams.</sub>
 </p>

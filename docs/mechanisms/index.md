@@ -103,13 +103,12 @@ controller.a().onTrue(claw.closeUntilGripped());
 controller.b().onTrue(claw.open());
 ```
 
-Use `PneumaticMechanism` instead for pneumatic claws.
+For pneumatic claws use `PneumaticMechanism`.
 
 ## PneumaticMechanism
 
-Single or double solenoid wrapped as a Catalyst mechanism with logging,
-command factories, optional pressure gating, and the Health Kit integration
-every other mechanism gets.
+Single or double solenoid wrapped as a mechanism with the same logging,
+command factories, and Health Kit integration as the motor mechanisms.
 
 ```java
 PneumaticMechanism climbHook = new PneumaticMechanism(
@@ -164,9 +163,9 @@ FlywheelMechanism shooter = new FlywheelMechanism(
         .build());
 ```
 
-Each follower automatically gets its own `OverCurrent` and `HighTemp`
-health checks so a smoking follower is just as visible on the Health
-Dashboard as a smoking primary.
+Each follower gets its own `OverCurrent` and `HighTemp` checks, so a
+fault on a follower is just as visible on the Health Dashboard as one
+on the primary.
 
 ## SuperstructureCoordinator
 

@@ -8,74 +8,94 @@ permalink: /
 # FrcCatalyst
 {: .fs-9 }
 
-Pre-built, configurable mechanism building blocks for FRC robots using CTRE Phoenix 6 and WPILib 2026.
+A Java library of pre-built mechanism building blocks for FRC robots on Phoenix 6 and WPILib 2026.
 {: .fs-6 .fw-300 }
 
 [Get Started](getting-started/installation){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
-[Open the Tools](tools/){: .btn .fs-5 .mb-4 .mb-md-0 .mr-2 }
-[View on GitHub](https://github.com/TomAs-1226/FrcCatalyst){: .btn .fs-5 .mb-4 .mb-md-0 }
+[Tools](tools/){: .btn .fs-5 .mb-4 .mb-md-0 .mr-2 }
+[GitHub](https://github.com/TomAs-1226/FrcCatalyst){: .btn .fs-5 .mb-4 .mb-md-0 }
 
 {% include hero3d.html %}
 
+<p style="margin-top: -8px">
+  <img src="https://img.shields.io/badge/WPILib-2026.2.1-1f6feb?style=flat-square" alt="WPILib"/>
+  <img src="https://img.shields.io/badge/Phoenix%206-26.1.1-e94560?style=flat-square" alt="Phoenix 6"/>
+  <img src="https://img.shields.io/badge/Java-17-orange?style=flat-square&logo=openjdk" alt="Java 17"/>
+  <img src="https://img.shields.io/badge/PathPlanner-2026.1.2-7c3aed?style=flat-square" alt="PathPlanner"/>
+  <img src="https://img.shields.io/badge/PhotonVision-v2026.3.1-22c55e?style=flat-square" alt="PhotonVision"/>
+</p>
+
 ---
 
-## Try the tools (no install required)
+## Browser tools
 
-Five single-file browser tools hosted right on this site. Open one and use it
-immediately — no clone, no `npm install`, no build step.
+Seven single-file tools served from this site. Click and use — no clone, no install.
 
 <style>
 .hero-tools {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 12px;
-  margin: 16px 0 30px;
+  gap: 14px;
+  margin: 18px 0 28px;
 }
 .hero-tool {
-  display: block;
-  padding: 14px 16px;
-  border: 1px solid var(--border-color, #2a3050);
-  border-radius: 10px;
+  display: flex; flex-direction: column;
+  padding: 18px 18px 16px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
   text-decoration: none !important;
   color: inherit;
-  background: var(--code-background-color, rgba(255,255,255,0.03));
-  transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+  background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+  position: relative; overflow: hidden;
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.hero-tool::before {
+  content: ""; position: absolute; inset: 0;
+  background: radial-gradient(300px 160px at 0% 0%, rgba(233,69,96,0.10), transparent 60%);
+  opacity: 0; transition: opacity 0.2s ease;
+  pointer-events: none;
 }
 .hero-tool:hover {
-  transform: translateY(-2px);
-  border-color: #e94560;
-  box-shadow: 0 6px 14px rgba(0,0,0,0.25);
+  transform: translateY(-3px);
+  border-color: rgba(233,69,96,0.55);
+  box-shadow: 0 14px 30px rgba(0,0,0,0.45);
 }
-.hero-tool .icon { font-size: 22px; line-height: 1; margin-bottom: 6px; display: block; }
-.hero-tool .name { font-weight: 700; color: #e94560; display: block; margin-bottom: 4px; }
-.hero-tool .desc { font-size: 12px; line-height: 1.45; color: var(--body-text-color, #666); }
+.hero-tool:hover::before { opacity: 1; }
+.hero-tool .icon {
+  font-size: 22px;
+  width: 40px; height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 10px;
+  background: rgba(233,69,96,0.12);
+  border: 1px solid rgba(233,69,96,0.20);
+  margin-bottom: 10px;
+}
+.hero-tool .name {
+  font-weight: 700; font-size: 15px;
+  display: block; margin-bottom: 4px; color: #e94560;
+  letter-spacing: -0.01em;
+}
+.hero-tool .desc {
+  font-size: 12px; line-height: 1.5;
+  color: var(--body-text-color, #aaa);
+}
 </style>
 
 <div class="hero-tools">
-  <a class="hero-tool" href="tools/builder/"><span class="icon">🛠️</span><span class="name">Catalyst Builder</span><span class="desc">Form → ready-to-paste Java config for every mechanism.</span></a>
-  <a class="hero-tool" href="tools/tuner/"><span class="icon">🎚</span><span class="name">Catalyst Tuner</span><span class="desc">Live NT4 PID + Motion Magic tuner.</span></a>
-  <a class="hero-tool" href="tools/health/"><span class="icon">🩺</span><span class="name">Health Dashboard</span><span class="desc">Live <code>/Catalyst/Health/</code> viewer with filters.</span></a>
-  <a class="hero-tool" href="tools/motion/"><span class="icon">📈</span><span class="name">Motion Profile Visualizer</span><span class="desc">Analytic trapezoid / S-curve profile sketcher.</span></a>
-  <a class="hero-tool" href="tools/pid/"><span class="icon">🎯</span><span class="name">PID Step Response</span><span class="desc">Pick a plant, dial gains, see the closed-loop response.</span></a>
+  <a class="hero-tool" href="tools/builder/"><span class="icon">🛠️</span><span class="name">Builder</span><span class="desc">Form generates ready-to-paste Java for any mechanism.</span></a>
+  <a class="hero-tool" href="tools/tuner/"><span class="icon">🎚</span><span class="name">Tuner</span><span class="desc">Live PID + Motion Magic over NT4.</span></a>
+  <a class="hero-tool" href="tools/health/"><span class="icon">🩺</span><span class="name">Health Dashboard</span><span class="desc">Every <code>HealthCheck</code> on the robot, live.</span></a>
+  <a class="hero-tool" href="tools/motion/"><span class="icon">📈</span><span class="name">Motion Profile</span><span class="desc">Trapezoid + S-curve sketcher with copyable constants.</span></a>
+  <a class="hero-tool" href="tools/pid/"><span class="icon">🎯</span><span class="name">PID Step Response</span><span class="desc">Dial gains, watch the simulated response.</span></a>
   <a class="hero-tool" href="tools/motors/"><span class="icon">⚡</span><span class="name">MotorType Browser</span><span class="desc">Every motor preset + gear-ratio calculator.</span></a>
-  <a class="hero-tool" href="tools/canids/"><span class="icon">🔌</span><span class="name">CAN ID Planner</span><span class="desc">Plan + audit the CAN bus before wiring.</span></a>
+  <a class="hero-tool" href="tools/canids/"><span class="icon">🔌</span><span class="name">CAN ID Planner</span><span class="desc">Catch CAN ID collisions before crimping.</span></a>
 </div>
-
-[Full tool docs →](tools/){: .btn .btn-outline .fs-4 .mb-4 }
 
 ---
 
-<p>
-  <img src="https://img.shields.io/badge/WPILib-2026.2.1-green?style=flat-square" alt="WPILib"/>
-  <img src="https://img.shields.io/badge/Phoenix%206-26.1.1-orange?style=flat-square" alt="Phoenix 6"/>
-  <img src="https://img.shields.io/badge/Java-17-blue?style=flat-square&logo=openjdk" alt="Java 17"/>
-  <img src="https://img.shields.io/badge/PathPlanner-2026.1.2-purple?style=flat-square" alt="PathPlanner"/>
-  <img src="https://img.shields.io/badge/PhotonVision-v2026.3.1-yellow?style=flat-square" alt="PhotonVision"/>
-</p>
+## Why
 
-## Why FrcCatalyst?
-
-Writing robot code from scratch every season means re-implementing the same elevator, arm, intake, and swerve patterns. FrcCatalyst gives you battle-tested implementations with one builder call:
+Every season teams rebuild the same elevator, arm, intake, and swerve scaffolding. Catalyst replaces it with one builder call:
 
 ```java
 LinearMechanism elevator = new LinearMechanism(
@@ -90,23 +110,21 @@ LinearMechanism elevator = new LinearMechanism(
 );
 ```
 
-You get Motion Magic control, gravity compensation, simulation, telemetry, safety limits, and command factories — all for free.
+Motion Magic, gravity FF, sim, telemetry, command factories, health monitoring, live tuning — all wired in.
 
-| Feature | Raw WPILib/Phoenix | FrcCatalyst |
-|---------|-------------------|-------------|
+| | Raw WPILib + Phoenix | Catalyst |
+|---|---|---|
 | Elevator with gravity FF | ~150 lines | **8 lines** |
 | Swerve + PathPlanner + Vision | ~400 lines | **15 lines** |
-| Mechanism with sim + telemetry | Build it yourself | **Built-in** |
-| Safe temperature cutoffs | Manual | **Automatic** |
-| Limit switch auto-zeroing | Manual wiring | **One builder call** |
+| Sim + telemetry per mechanism | you write it | included |
+| Temperature cutoff | manual | automatic |
+| Limit-switch auto-zero | manual | one call |
 
 ---
 
-## What's Included
+## What's in the box
 
 ### Mechanisms
-
-Pre-built, configurable mechanism types that cover virtually every FRC subsystem.
 
 | Mechanism | Use Case | Key Features |
 |-----------|----------|--------------|
@@ -122,70 +140,55 @@ Pre-built, configurable mechanism types that cover virtually every FRC subsystem
 
 ### Subsystems
 
-Complex subsystem wrappers that integrate multiple components.
+- **SwerveSubsystem** — wraps the TunerX-generated drivetrain. Heading lock, point-at-target, skew correction, PathPlanner.
+- **VisionSubsystem** — multi-camera with Kalman innovation tracking, high-speed rejection, heading-divergence filtering.
+- **LEDSubsystem** — 14 patterns (fire, gradients, Larson scanner, alignment indicator).
 
-- **SwerveSubsystem** — CTRE Tuner X wrapper with heading lock, point-at-target, skew correction, advanced drive, PathPlanner
-- **VisionSubsystem** — Multi-camera Kalman filter with innovation tracking, high-speed rejection, heading divergence filtering
-- **LEDSubsystem** — 14 addressable LED patterns including fire, gradient, larson scanner, alignment indicator
+### Advanced
 
-### Advanced Features (New)
+| | |
+|---|---|
+| `StateSpaceController` | LQR + Kalman for optimal mechanism control |
+| `MotionConstraintCalculator` | Physics-derived velocity / accel from motor specs |
+| `SignalProcessor` | EMA, median, low-pass, composite filters |
+| `PoseHistory` | Timestamped pose ring buffer with interpolation |
+| `DynamicAutoBuilder` | Runtime path generation via PathPlanner |
+| `TunableNumber` | Dashboard-editable constants for live PID tuning |
+| `AutoSelector` | PathPlanner auto chooser with safe fallbacks |
+| `GamePieceTracker` | Multi-stage piece state machine with Triggers |
+| Skew correction | Pose-exponential discretization for swerve |
+| Collision zones | Prevent physical mechanism collisions |
 
-Advanced control and estimation features:
+### Health and safety (v0.3.3+)
 
-| Feature | Description |
-|---------|-------------|
-| **StateSpaceController** | LQR + Kalman filter for optimal mechanism control |
-| **MotionConstraintCalculator** | Physics-based max velocity/acceleration from motor specs |
-| **SignalProcessor** | EMA, median, low-pass, composite sensor filters |
-| **PoseHistory** | Temporal pose tracking with interpolation |
-| **DynamicAutoBuilder** | Runtime path generation with PathPlanner |
-| **TunableNumber** | Dashboard-editable constants for live PID tuning |
-| **AutoSelector** | PathPlanner auto chooser with safe fallbacks |
-| **GamePieceTracker** | Multi-stage game piece state machine with Triggers |
-| **Skew Correction** | Pose exponential discretization for swerve |
-| **Collision Zones** | Prevent physical mechanism collisions |
+| | |
+|---|---|
+| `HealthCheck` / `HealthMonitor` | Debounced INFO / WARN / ERROR layer; every motor gets OverCurrent / HighTemp / OverTemp by default |
+| `HealthHistory` | Ring buffer of recent transitions; published for the dashboard timeline |
+| `RobotSafety` | Optional watchdog with `trippedTrigger()` for one-line bindings |
+| `MotorType` | NEO / Vortex / 550 / Minion / Kraken (including X44 and corrected FOC torques), plus a public constructor for custom motors |
 
-### Health & Safety (v0.3.3+)
+### Every mechanism gets
 
-| Feature | Description |
-|---------|-------------|
-| **HealthCheck / HealthMonitor** | Debounced INFO / WARN / ERROR check layer — every motor mechanism gets OverCurrent / HighTemp / OverTemp checks for free |
-| **HealthHistory** | Ring buffer of recent fire/clear events, queryable + auto-published for the dashboard timeline |
-| **RobotSafety** | Opt-in cross-mechanism watchdog with `trippedTrigger()` for one-line Command bindings |
-| **MotorType** | Open class with NEO / Vortex / 550 / Minion / Kraken (incl. X44 and corrected FOC specs) presets — and a public constructor for your own |
-
-### Browser Tools (live on this site)
-
-- 🛠️ **[Catalyst Builder](tools/builder/)** — form-driven Java config generator with localStorage persistence, `.java` download, full-subsystem-class mode, and snippet import
-- 🎚 **[Catalyst Tuner](tools/tuner/)** — NT4 PID + Motion Magic tuner with gains-snapshot JSON export
-- 🩺 **[Health Dashboard](tools/health/)** — live `/Catalyst/Health/` viewer with severity filters, search, and report download
-
-### Every Mechanism Includes
-
-- Builder-pattern configuration with sensible defaults
-- Motion Magic position control (TalonFX) or ProfiledPID (roboRIO)
-- Named position presets (`goTo("STOW")`)
-- Built-in simulation with accurate motor models
-- Automatic NetworkTables telemetry
-- Temperature cutoff, limit switch safety, and **HealthCheck-based fault monitoring**
-- Pre-built command factories
-- **Multi-follower support** (one builder call per follower)
+Builder config, Motion Magic or ProfiledPID, named position presets (`goTo("STOW")`),
+WPILib sim, NetworkTables telemetry, temperature cutoff, limit-switch auto-zero,
+HealthCheck-based fault monitoring, multi-follower support, pre-built commands.
 
 ---
 
 ## Documentation
 
-| Section | Description |
-|---------|-------------|
-| [Installation](getting-started/installation) | Add FrcCatalyst to your project |
-| [Quick Start](getting-started/quickstart) | Build your first mechanism in 5 minutes |
-| [Mechanisms](mechanisms/) | Linear, Rotational, Flywheel, Roller, Winch, Claw, **Differential Wrist (native CTRE)**, **Pneumatic** |
-| [Subsystems](subsystems/) | Swerve Drive, Vision, LEDs |
-| [Utilities](utilities/) | Feedforward, profiles, alerts, **Health Kit**, **RobotSafety**, **MotorType** |
-| [Advanced](advanced/) | State-space control, signal processing, dynamic paths, **Live Tuning**, **Health Monitoring** |
-| [Tools](tools/) | **Catalyst Builder**, **Tuner**, **Health Dashboard** — live on this site |
-| [Examples](examples/) | Complete robot examples with elevator, intake, and more |
-| [Testing](testing/) | How to test your FrcCatalyst-based code |
+| | |
+|---|---|
+| [Installation](getting-started/installation) | Add Catalyst to your `build.gradle` |
+| [Quick Start](getting-started/quickstart) | First mechanism in five minutes |
+| [Mechanisms](mechanisms/) | All eight mechanism types |
+| [Subsystems](subsystems/) | Swerve, Vision, LEDs |
+| [Utilities](utilities/) | Health Kit, RobotSafety, MotorType, feedforward, profiles, alerts |
+| [Advanced](advanced/) | State-space, signal processing, live tuning, health monitoring |
+| [Tools](tools/) | The seven browser tools |
+| [Examples](examples/) | Whole-robot examples |
+| [Testing](testing/) | Unit-testing Catalyst-based code |
 
 ---
 
