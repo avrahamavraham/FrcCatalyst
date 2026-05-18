@@ -91,7 +91,7 @@ operatorController.b().onTrue(elevator.goTo("STOW"));
 
 ## What's New in v0.3.5.1-beta
 
-- **The tools are now live on GitHub Pages.** No clone, no local server — just open [tomas-1226.github.io/FrcCatalyst/tools/](https://tomas-1226.github.io/FrcCatalyst/tools/) and use the Builder, Tuner, and Health Dashboard right from the browser.
+- **Five hosted tools, no install required.** Open [tomas-1226.github.io/FrcCatalyst/tools/](https://tomas-1226.github.io/FrcCatalyst/tools/) and you get [🛠️ Catalyst Builder](https://tomas-1226.github.io/FrcCatalyst/tools/builder/), [🎚 Catalyst Tuner](https://tomas-1226.github.io/FrcCatalyst/tools/tuner/), [🩺 Health Dashboard](https://tomas-1226.github.io/FrcCatalyst/tools/health/), [📈 Motion Profile Visualizer](https://tomas-1226.github.io/FrcCatalyst/tools/motion/), and [⚡ MotorType Browser](https://tomas-1226.github.io/FrcCatalyst/tools/motors/) — all in one click.
 - **Builder upgrades**: localStorage persistence, **download as `.java`**, **full subsystem class** mode (wraps the config in a `SubsystemBase` skeleton), and **import** to populate the form from an existing `Foo.Config.builder()...build()` snippet.
 - **Tuner**: **Download gains JSON** — archive a working tune between events with one click.
 - **Health Dashboard**: **Download report** — text snapshot of every check, ready to paste into team chat when triaging.

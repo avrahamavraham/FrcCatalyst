@@ -12,7 +12,52 @@ Pre-built, configurable mechanism building blocks for FRC robots using CTRE Phoe
 {: .fs-6 .fw-300 }
 
 [Get Started](getting-started/installation){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
+[Open the Tools](tools/){: .btn .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [View on GitHub](https://github.com/TomAs-1226/FrcCatalyst){: .btn .fs-5 .mb-4 .mb-md-0 }
+
+---
+
+## Try the tools (no install required)
+
+Five single-file browser tools hosted right on this site. Open one and use it
+immediately — no clone, no `npm install`, no build step.
+
+<style>
+.hero-tools {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 16px 0 30px;
+}
+.hero-tool {
+  display: block;
+  padding: 14px 16px;
+  border: 1px solid var(--border-color, #2a3050);
+  border-radius: 10px;
+  text-decoration: none !important;
+  color: inherit;
+  background: var(--code-background-color, rgba(255,255,255,0.03));
+  transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+}
+.hero-tool:hover {
+  transform: translateY(-2px);
+  border-color: #e94560;
+  box-shadow: 0 6px 14px rgba(0,0,0,0.25);
+}
+.hero-tool .icon { font-size: 22px; line-height: 1; margin-bottom: 6px; display: block; }
+.hero-tool .name { font-weight: 700; color: #e94560; display: block; margin-bottom: 4px; }
+.hero-tool .desc { font-size: 12px; line-height: 1.45; color: var(--body-text-color, #666); }
+</style>
+
+<div class="hero-tools">
+  <a class="hero-tool" href="tools/builder/"><span class="icon">🛠️</span><span class="name">Catalyst Builder</span><span class="desc">Form → ready-to-paste Java config for every mechanism.</span></a>
+  <a class="hero-tool" href="tools/tuner/"><span class="icon">🎚</span><span class="name">Catalyst Tuner</span><span class="desc">Live NT4 PID + Motion Magic tuner.</span></a>
+  <a class="hero-tool" href="tools/health/"><span class="icon">🩺</span><span class="name">Health Dashboard</span><span class="desc">Live <code>/Catalyst/Health/</code> viewer with filters.</span></a>
+  <a class="hero-tool" href="tools/motion/"><span class="icon">📈</span><span class="name">Motion Profile Visualizer</span><span class="desc">Sketch a Motion Magic profile before committing.</span></a>
+  <a class="hero-tool" href="tools/motors/"><span class="icon">⚡</span><span class="name">MotorType Browser</span><span class="desc">Every motor preset + gear-ratio calculator.</span></a>
+</div>
+
+[Full tool docs →](tools/){: .btn .btn-outline .fs-4 .mb-4 }
 
 ---
 

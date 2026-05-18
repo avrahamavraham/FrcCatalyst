@@ -26,15 +26,87 @@ no `npm install`, no build step. Click and go. The same files also live in
 the repo under `docs/tools/` if you want to run them off your laptop while
 disconnected from the internet.
 
-| Tool | What it does | Open |
-|---|---|---|
-| 🛠️ **Catalyst Builder** | Form-driven Java code generator for every Catalyst mechanism. Fill the form, copy or download the snippet, paste into your subsystem. | [Open →](builder/) |
-| 🎚 **Catalyst Tuner** | Live NT4 PID + Motion Magic tuner. Connect to your robot or simulator, drag sliders, export the final gains back to Java. | [Open →](tuner/) |
-| 🩺 **Health Dashboard** | Live NT4 read-only health monitor. Per-subsystem cards, severity filters, search. Pair with the `RobotSafety` watchdog. | [Open →](health/) |
+<style>
+.tool-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+  margin: 18px 0 28px;
+}
+.tool-card {
+  display: block;
+  padding: 18px 18px 16px;
+  border: 1px solid var(--border-color, #2a3050);
+  border-radius: 10px;
+  text-decoration: none;
+  color: inherit;
+  background: var(--code-background-color, rgba(255,255,255,0.03));
+  transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+}
+.tool-card:hover {
+  transform: translateY(-2px);
+  border-color: #e94560;
+  box-shadow: 0 6px 14px rgba(0,0,0,0.25);
+  text-decoration: none;
+}
+.tool-card .icon { font-size: 26px; margin-bottom: 8px; display: block; }
+.tool-card .name { font-weight: 700; font-size: 16px; margin: 0 0 6px; color: #e94560; }
+.tool-card .desc { font-size: 13px; color: var(--body-text-color, #555); line-height: 1.5; }
+.tool-card .tag {
+  display: inline-block;
+  font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 1px;
+  padding: 2px 7px; border-radius: 999px;
+  margin-top: 10px;
+}
+.tag.live { background: rgba(74, 222, 128, 0.18); color: #4ade80; }
+.tag.calc { background: rgba(96, 165, 250, 0.18); color: #60a5fa; }
+.tag.docs { background: rgba(233, 69, 96, 0.18); color: #e94560; }
+</style>
 
-> All three connect over plain NT4 WebSocket (port `5810`) and pull msgpack
-> from a public CDN. Nothing is uploaded anywhere, and there's no telemetry
-> back to the library.
+<div class="tool-grid">
+
+<a class="tool-card" href="builder/">
+  <span class="icon">🛠️</span>
+  <p class="name">Catalyst Builder</p>
+  <p class="desc">Form-driven Java code generator for every mechanism. Persistence, .java download, full-subsystem-class mode, snippet import.</p>
+  <span class="tag docs">Generator</span>
+</a>
+
+<a class="tool-card" href="tuner/">
+  <span class="icon">🎚</span>
+  <p class="name">Catalyst Tuner</p>
+  <p class="desc">Live NT4 PID + Motion Magic tuner. Drag sliders against your running robot, export the final gains as Java or JSON.</p>
+  <span class="tag live">Robot-connected</span>
+</a>
+
+<a class="tool-card" href="health/">
+  <span class="icon">🩺</span>
+  <p class="name">Health Dashboard</p>
+  <p class="desc">Live NT4 viewer for <code>/Catalyst/Health/</code>. Per-subsystem cards, severity filters, search, report download.</p>
+  <span class="tag live">Robot-connected</span>
+</a>
+
+<a class="tool-card" href="motion/">
+  <span class="icon">📈</span>
+  <p class="name">Motion Profile Visualizer</p>
+  <p class="desc">Sketch a Motion Magic profile before committing. Cruise / accel / jerk → live s-v-a curves and a paste-ready <code>.motionMagic(...)</code> snippet.</p>
+  <span class="tag calc">Calculator</span>
+</a>
+
+<a class="tool-card" href="motors/">
+  <span class="icon">⚡</span>
+  <p class="name">MotorType Browser</p>
+  <p class="desc">Searchable table of every <code>MotorType</code> preset with a built-in gear-ratio calculator. Max RPM, output torque, holding voltage at a glance.</p>
+  <span class="tag calc">Calculator</span>
+</a>
+
+</div>
+
+> The three robot-connected tools speak plain NT4 WebSocket (port `5810`) and
+> pull msgpack from a public CDN. Nothing is uploaded anywhere, and there's
+> no telemetry back to the library. The calculator tools work entirely
+> offline once the page has loaded.
 
 ---
 
@@ -107,6 +179,44 @@ See [docs/advanced/health.md](../advanced/health.html) for the API and
 how to add your own checks.
 
 ---
+
+## Motion Profile Visualizer
+
+Open at [tools/motion/](motion/). Numerically integrates a trapezoidal
+(jerk = 0) or S-curve (jerk &gt; 0) Motion Magic profile and draws live
+position / velocity / acceleration curves as you drag the sliders.
+
+- **Sliders** for distance, cruise velocity, acceleration, and jerk.
+- **Built-in presets** for common patterns (geared elevator, slow arm,
+  flywheel spin-up, quick S-curve snap).
+- **Live stats** — total time, time at cruise, whether the move actually
+  reaches cruise velocity (helpful to spot under-aggressive accel).
+- **Copy `.motionMagic(…)` snippet** with one click — drops the current
+  cruise/accel/jerk into the form a Catalyst mechanism expects.
+
+Useful when picking starting Motion Magic constants for a new mechanism
+or sanity-checking whether your accel limit is actually fast enough to
+ever leave the ramp-up phase.
+
+## MotorType Browser
+
+Open at [tools/motors/](motors/). Interactive table of every
+[`MotorType`](../utilities/#motortype) preset Catalyst ships, with a
+side-panel calculator that does the math you'd otherwise scribble on
+the side of your notebook:
+
+- **Sortable, filterable table** — by name, torque, free speed, current.
+  Vendor / FOC chips on each row.
+- **Calculator** — pick a motor, type in a gear ratio + motor count
+  (and optionally a load torque), get max mechanism RPM, output stall
+  torque, total stall current, and the gravity-feedforward holding
+  voltage estimate.
+- **Copy `MotorType.X`** as a constant reference, or **copy a builder
+  line** ready to paste into any Catalyst Config builder.
+
+Specs match the values inside
+[`src/main/java/frc/lib/catalyst/hardware/MotorType.java`](https://github.com/TomAs-1226/FrcCatalyst/blob/main/src/main/java/frc/lib/catalyst/hardware/MotorType.java)
+and WPILib 2026's `DCMotor.getKraken*` / `getFalcon500*` factories.
 
 ## AdvantageScope tab bundles
 

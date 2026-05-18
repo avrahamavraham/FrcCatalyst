@@ -10,6 +10,12 @@ color_scheme: dark
 # Logo and aux links
 logo: "/assets/logo.svg"
 aux_links:
+  "🛠️ Builder":
+    - "/FrcCatalyst/tools/builder/"
+  "🎚 Tuner":
+    - "/FrcCatalyst/tools/tuner/"
+  "🩺 Health":
+    - "/FrcCatalyst/tools/health/"
   "GitHub":
     - "https://github.com/TomAs-1226/FrcCatalyst"
 
