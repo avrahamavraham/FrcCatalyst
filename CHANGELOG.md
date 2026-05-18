@@ -5,6 +5,39 @@ All notable changes to FrcCatalyst are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.3.6.1-beta] — 2026-05-18
+
+### Fixed — silent follower loss in Linear / Rotational
+- `LinearMechanism.Config.follower(canId, oppose)` and
+  `RotationalMechanism.Config.follower(canId, oppose)` were **overwriting**
+  the previous follower on every call. Anyone calling
+  `.follower(11, true).follower(12, false)` silently lost the first
+  follower. Both are now additive (matching the v0.3.5 fix to Claw and
+  Flywheel). Same `(canId, oppose)` API; just call once per follower for
+  3+ motor setups.
+- The old workaround `additionalFollower(canId, oppose)` is now a
+  `@Deprecated` shim that forwards to `follower(...)`. Existing code
+  keeps compiling.
+
+### Added
+- `RollerMechanism` now supports followers — `.follower(canId, oppose)`
+  is additive, same pattern as the other mechanisms. Two-motor intakes
+  (master + mirrored follower) need only one builder call per follower.
+  Per-follower `OverCurrent` / `HighTemp` health checks register
+  automatically.
+
+### Builder UI fixes
+- The Roller schema previously emitted `.intakeVoltage(6.0)` /
+  `.outtakeVoltage(-4.0)` / `.holdVoltage(...)` — none of those methods
+  exist on `RollerMechanism`. Schema now generates the correct
+  `.intakeSpeed(...)` / `.ejectSpeed(...)` / `.stallDetection(...)`.
+- The schema also emitted `.gravity(0.35)` for Linear/Rotational kG —
+  the Java method is `.gravityGain(0.35)`. Fixed.
+- The Rotational tolerance emitted `.toleranceDegrees(1.0)` — Java
+  method is `.tolerance(1.0)`. Fixed.
+- The **Intake** preset now wires a follower at id 41 (mirrored) so the
+  generated code matches the "Roller · 2-motor + beam-break" subtitle.
+
 ## [0.3.6-beta] — 2026-05-18
 
 ### Added — `CANRegistry`

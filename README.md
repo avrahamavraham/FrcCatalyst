@@ -89,6 +89,12 @@ operatorController.b().onTrue(elevator.goTo("STOW"));
 
 ---
 
+## What's New in v0.3.6.1-beta
+
+- **Silent follower loss in Linear / Rotational, fixed.** `.follower(canId, oppose)` is now additive on every mechanism (same fix that landed for Claw and Flywheel in v0.3.5). The pre-existing `additionalFollower(...)` workaround is `@Deprecated` and now forwards to `.follower(...)`.
+- **`RollerMechanism` now supports followers** — two-motor intakes with one builder call per follower.
+- **Builder UI generated code that didn't compile** for elevator / arm / roller. The schema was using `gravity()` (no such method, it's `gravityGain()`), `toleranceDegrees()` (it's `tolerance()`), and `intakeVoltage / outtakeVoltage / holdVoltage` on Roller (it's `intakeSpeed / ejectSpeed / stallDetection`). All four fixed. The Intake preset now also wires a mirrored follower so 2-motor intakes work out of the box.
+
 ## What's New in v0.3.6-beta
 
 - **`CANRegistry`** — every `CatalystMotor` (and any CANcoder it touches) now auto-claims its `(bus, id)` at construction. Duplicates throw with both sides named. Plan is published to `/Catalyst/CAN/Devices`.

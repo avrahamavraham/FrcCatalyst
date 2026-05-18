@@ -11,6 +11,7 @@ import edu.wpi.first.wpilibj.simulation.SingleJointedArmSim;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.lib.catalyst.hardware.CatalystMotor;
+import frc.lib.catalyst.hardware.CatalystMotor.FollowerSpec;
 import frc.lib.catalyst.hardware.MotorType;
 import frc.lib.catalyst.io.RotationalMechanismInputs;
 import frc.lib.catalyst.util.FeedforwardGains;
@@ -18,7 +19,9 @@ import frc.lib.catalyst.util.HealthCheck;
 import frc.lib.catalyst.util.HealthMonitor;
 import frc.lib.catalyst.util.TunableGains;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.DoubleSupplier;
 
@@ -77,7 +80,7 @@ public class RotationalMechanism extends CatalystMechanism {
         super(config.name);
         this.config = config;
 
-        int motorCount = config.followerCanId >= 0 ? 2 : 1;
+        int motorCount = 1 + config.followers.size();
 
         CatalystMotor.Builder motorBuilder = CatalystMotor.builder(config.motorCanId)
                 .name(config.name + "Motor")
@@ -102,8 +105,8 @@ public class RotationalMechanism extends CatalystMechanism {
         double maxRotations = config.maxAngle / 360.0;
         motorBuilder.softLimits(minRotations, maxRotations);
 
-        if (config.followerCanId >= 0) {
-            motorBuilder.withFollower(config.followerCanId, config.followerOppose);
+        for (FollowerSpec spec : config.followers) {
+            motorBuilder.withFollower(spec.canId(), spec.oppose());
         }
 
         this.motor = motorBuilder.build();
@@ -491,8 +494,7 @@ public class RotationalMechanism extends CatalystMechanism {
         final int motorCanId;
         final String canBus;
         final boolean inverted;
-        final int followerCanId;
-        final boolean followerOppose;
+        final List<FollowerSpec> followers;
         final MotorType motorType;
         final double gearRatio;
         final double length;
@@ -527,8 +529,7 @@ public class RotationalMechanism extends CatalystMechanism {
             this.motorCanId = b.motorCanId;
             this.canBus = b.canBus;
             this.inverted = b.inverted;
-            this.followerCanId = b.followerCanId;
-            this.followerOppose = b.followerOppose;
+            this.followers = List.copyOf(b.followers);
             this.motorType = b.motorType;
             this.gearRatio = b.gearRatio;
             this.length = b.length;
@@ -585,8 +586,7 @@ public class RotationalMechanism extends CatalystMechanism {
             private int motorCanId = 0;
             private String canBus = "";
             private boolean inverted = false;
-            private int followerCanId = -1;
-            private boolean followerOppose = false;
+            private final List<FollowerSpec> followers = new ArrayList<>();
             private MotorType motorType = MotorType.KRAKEN_X60;
             private double gearRatio = 1.0;
             private double length = 0.5; // meters
@@ -619,9 +619,24 @@ public class RotationalMechanism extends CatalystMechanism {
             public Builder canBus(String canBus) { this.canBus = canBus; return this; }
             public Builder inverted(boolean inverted) { this.inverted = inverted; return this; }
 
+            /**
+             * Attach a follower motor that mirrors the primary. Additive:
+             * call once per follower for 3+ motor arms.
+             *
+             * @param canId  CAN id of the follower TalonFX
+             * @param oppose true if the follower runs opposed to the primary
+             */
             public Builder follower(int canId, boolean oppose) {
-                this.followerCanId = canId;
-                this.followerOppose = oppose;
+                this.followers.add(new FollowerSpec(canId, oppose));
+                return this;
+            }
+
+            /** Convenience: follower with {@code oppose = false}. */
+            public Builder follower(int canId) { return follower(canId, false); }
+
+            /** Add several followers in one call. */
+            public Builder followers(FollowerSpec... specs) {
+                for (FollowerSpec s : specs) this.followers.add(s);
                 return this;
             }
 

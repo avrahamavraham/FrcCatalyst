@@ -12,7 +12,11 @@ import edu.wpi.first.wpilibj.simulation.ElevatorSim;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.lib.catalyst.hardware.CatalystMotor;
+import frc.lib.catalyst.hardware.CatalystMotor.FollowerSpec;
 import frc.lib.catalyst.hardware.MotorType;
+
+import java.util.ArrayList;
+import java.util.List;
 import frc.lib.catalyst.io.LinearMechanismInputs;
 import frc.lib.catalyst.util.FeedforwardGains;
 import frc.lib.catalyst.util.HealthCheck;
@@ -109,17 +113,11 @@ public class LinearMechanism extends CatalystMechanism {
         double maxRotations = metersToRotations(config.maxPosition);
         motorBuilder.softLimits(minRotations, maxRotations);
 
-        // Add primary follower (if configured)
-        if (config.followerCanId >= 0) {
-            motorBuilder.withFollower(config.followerCanId, config.followerOppose);
-        }
-        // Add additional followers. The builder API is additive — every call appends
-        // another follower TalonFX. Previously these arrays were declared but never
-        // wired up; teams using 3+ motors per mechanism would silently lose them.
-        for (int i = 0; i < config.additionalFollowerCanIds.length; i++) {
-            motorBuilder.withFollower(
-                    config.additionalFollowerCanIds[i],
-                    config.additionalFollowerOppose[i]);
+        // Attach every follower the builder collected. The list is additive,
+        // so .follower(11, true).follower(12, false) attaches both — same
+        // semantics as Claw/Flywheel since v0.3.5.
+        for (FollowerSpec spec : config.followers) {
+            motorBuilder.withFollower(spec.canId(), spec.oppose());
         }
 
         this.motor = motorBuilder.build();
@@ -548,10 +546,7 @@ public class LinearMechanism extends CatalystMechanism {
         final int motorCanId;
         final String canBus;
         final boolean inverted;
-        final int followerCanId;
-        final boolean followerOppose;
-        final int[] additionalFollowerCanIds;
-        final boolean[] additionalFollowerOppose;
+        final List<FollowerSpec> followers;
         final MotorType motorType;
         final double gearRatio;
         final int stages;
@@ -586,10 +581,7 @@ public class LinearMechanism extends CatalystMechanism {
             this.motorCanId = b.motorCanId;
             this.canBus = b.canBus;
             this.inverted = b.inverted;
-            this.followerCanId = b.followerCanId;
-            this.followerOppose = b.followerOppose;
-            this.additionalFollowerCanIds = b.additionalFollowerCanIds;
-            this.additionalFollowerOppose = b.additionalFollowerOppose;
+            this.followers = List.copyOf(b.followers);
             this.motorType = b.motorType;
             this.gearRatio = b.gearRatio;
             this.stages = b.stages;
@@ -655,10 +647,7 @@ public class LinearMechanism extends CatalystMechanism {
             private int motorCanId = 0;
             private String canBus = "";
             private boolean inverted = false;
-            private int followerCanId = -1;
-            private boolean followerOppose = false;
-            private int[] additionalFollowerCanIds = new int[0];
-            private boolean[] additionalFollowerOppose = new boolean[0];
+            private final List<FollowerSpec> followers = new ArrayList<>();
             private MotorType motorType = MotorType.KRAKEN_X60;
             private double gearRatio = 1.0;
             private int stages = 1;
@@ -691,9 +680,25 @@ public class LinearMechanism extends CatalystMechanism {
             public Builder canBus(String canBus) { this.canBus = canBus; return this; }
             public Builder inverted(boolean inverted) { this.inverted = inverted; return this; }
 
+            /**
+             * Attach a follower motor that mirrors the primary. This method
+             * is <b>additive</b> — call it once per follower for setups with
+             * three or more motors ganged on the elevator shaft.
+             *
+             * @param canId  CAN id of the follower TalonFX
+             * @param oppose true if it should run in the opposite direction
+             */
             public Builder follower(int canId, boolean oppose) {
-                this.followerCanId = canId;
-                this.followerOppose = oppose;
+                this.followers.add(new FollowerSpec(canId, oppose));
+                return this;
+            }
+
+            /** Convenience: follower with {@code oppose = false}. */
+            public Builder follower(int canId) { return follower(canId, false); }
+
+            /** Add several followers in one call. */
+            public Builder followers(FollowerSpec... specs) {
+                for (FollowerSpec s : specs) this.followers.add(s);
                 return this;
             }
 
@@ -798,31 +803,16 @@ public class LinearMechanism extends CatalystMechanism {
                 return this;
             }
 
-            /**
-             * Add an additional follower motor beyond the primary follower.
-             * <p>This is the fix for the long-standing limitation where Catalyst only
-             * wired up one follower per mechanism. Call this method once per follower —
-             * for a four-Kraken elevator with two followers on each side of the leader,
-             * call this three times.
-             *
-             * @param canId  follower CAN ID
-             * @param oppose if true, the follower runs opposed to the leader (mirrored)
-             */
+            /** @deprecated since v0.3.6.1 — {@link #follower(int, boolean)} is now additive. */
+            @Deprecated
             public Builder additionalFollower(int canId, boolean oppose) {
-                int[] ids = new int[this.additionalFollowerCanIds.length + 1];
-                boolean[] opp = new boolean[this.additionalFollowerOppose.length + 1];
-                System.arraycopy(this.additionalFollowerCanIds, 0, ids, 0, this.additionalFollowerCanIds.length);
-                System.arraycopy(this.additionalFollowerOppose, 0, opp, 0, this.additionalFollowerOppose.length);
-                ids[ids.length - 1] = canId;
-                opp[opp.length - 1] = oppose;
-                this.additionalFollowerCanIds = ids;
-                this.additionalFollowerOppose = opp;
-                return this;
+                return follower(canId, oppose);
             }
 
-            /** Shorthand for {@link #additionalFollower(int, boolean)} with {@code oppose=false}. */
+            /** @deprecated since v0.3.6.1 — use {@link #follower(int)}. */
+            @Deprecated
             public Builder additionalFollower(int canId) {
-                return additionalFollower(canId, false);
+                return follower(canId);
             }
 
             /** Set the temperature threshold for fault alerts (default 70C). */

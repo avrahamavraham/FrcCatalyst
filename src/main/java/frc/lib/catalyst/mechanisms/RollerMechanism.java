@@ -6,8 +6,12 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.lib.catalyst.hardware.CatalystMotor;
+import frc.lib.catalyst.hardware.CatalystMotor.FollowerSpec;
 import frc.lib.catalyst.io.RollerMechanismInputs;
 import frc.lib.catalyst.util.HealthMonitor;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Generic roller mechanism. Use for intakes, conveyors, indexers,
@@ -49,14 +53,17 @@ public class RollerMechanism extends CatalystMechanism {
         super(config.name);
         this.config = config;
 
-        this.motor = CatalystMotor.builder(config.motorCanId)
+        CatalystMotor.Builder motorBuilder = CatalystMotor.builder(config.motorCanId)
                 .name(config.name + "Motor")
                 .canBus(config.canBus)
                 .inverted(config.inverted)
                 .brakeMode(config.brakeMode)
                 .currentLimit(config.currentLimit)
-                .statorCurrentLimit(config.statorCurrentLimit)
-                .build();
+                .statorCurrentLimit(config.statorCurrentLimit);
+        for (FollowerSpec spec : config.followers) {
+            motorBuilder.withFollower(spec.canId(), spec.oppose());
+        }
+        this.motor = motorBuilder.build();
 
         // Beam break sensor
         if (config.beamBreakPort >= 0) {
@@ -293,6 +300,7 @@ public class RollerMechanism extends CatalystMechanism {
     public static class Config {
         final String name;
         final int motorCanId;
+        final List<FollowerSpec> followers;
         final String canBus;
         final boolean inverted;
         final boolean brakeMode;
@@ -307,6 +315,7 @@ public class RollerMechanism extends CatalystMechanism {
         private Config(Builder b) {
             this.name = b.name;
             this.motorCanId = b.motorCanId;
+            this.followers = List.copyOf(b.followers);
             this.canBus = b.canBus;
             this.inverted = b.inverted;
             this.brakeMode = b.brakeMode;
@@ -326,6 +335,7 @@ public class RollerMechanism extends CatalystMechanism {
         public static class Builder {
             private String name = "RollerMechanism";
             private int motorCanId = 0;
+            private final List<FollowerSpec> followers = new ArrayList<>();
             private String canBus = "";
             private boolean inverted = false;
             private boolean brakeMode = false;
@@ -339,6 +349,25 @@ public class RollerMechanism extends CatalystMechanism {
 
             public Builder name(String name) { this.name = name; return this; }
             public Builder motor(int canId) { this.motorCanId = canId; return this; }
+
+            /**
+             * Attach a follower roller. Additive — call once per follower
+             * for two-roller intakes with mirrored motors.
+             */
+            public Builder follower(int canId, boolean oppose) {
+                this.followers.add(new FollowerSpec(canId, oppose));
+                return this;
+            }
+
+            /** Convenience: follower with {@code oppose = false}. */
+            public Builder follower(int canId) { return follower(canId, false); }
+
+            /** Add several followers in one call. */
+            public Builder followers(FollowerSpec... specs) {
+                for (FollowerSpec s : specs) this.followers.add(s);
+                return this;
+            }
+
             public Builder canBus(String canBus) { this.canBus = canBus; return this; }
             public Builder inverted(boolean inverted) { this.inverted = inverted; return this; }
             public Builder brakeMode(boolean brakeMode) { this.brakeMode = brakeMode; return this; }

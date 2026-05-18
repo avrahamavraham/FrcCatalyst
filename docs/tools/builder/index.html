@@ -245,7 +245,7 @@
 
 <header>
   <h1>Catalyst Builder</h1>
-  <span class="badge" id="version">v0.3.6</span>
+  <span class="badge" id="version">v0.3.6.1</span>
   <span class="hint">Generate ready-to-paste mechanism config code.</span>
 </header>
 
@@ -340,7 +340,7 @@
         { title: "Limits", fields: [
           { id: "currentLimit", label: "currentLimit (A)", type: "double", placeholder: "40", builder: "currentLimit" },
           { id: "statorCurrentLimit", label: "statorCurrentLimit (A)", type: "double", placeholder: "80", builder: "statorCurrentLimit" },
-          { id: "tolerance", label: "tolerance (m)", type: "double", placeholder: "0.01", builder: "tolerance" },
+          { id: "tolerance", label: "tolerance (m)", type: "double", placeholder: "0.01", builder: "positionTolerance" },
         ]},
         { title: "Control", fields: [
           { id: "kP", label: "kP", type: "double", builder: "pid", group: "pid" },
@@ -349,7 +349,7 @@
           { id: "kS", label: "kS", type: "double", builder: "feedforward", group: "ff" },
           { id: "kV", label: "kV", type: "double", builder: "feedforward", group: "ff" },
           { id: "kA", label: "kA", type: "double", builder: "feedforward", group: "ff" },
-          { id: "kG", label: "kG", type: "double", builder: "gravity" },
+          { id: "kG", label: "kG", type: "double", builder: "gravityGain" },
           { id: "mmCruise", label: "MM cruise (rps)", type: "double", builder: "motionMagic", group: "mm" },
           { id: "mmAccel", label: "MM accel (rps²)", type: "double", builder: "motionMagic", group: "mm" },
           { id: "mmJerk", label: "MM jerk (rps³)", type: "double", builder: "motionMagic", group: "mm" },
@@ -380,7 +380,7 @@
         { title: "Limits", fields: [
           { id: "currentLimit", label: "currentLimit (A)", type: "double", builder: "currentLimit" },
           { id: "statorCurrentLimit", label: "statorCurrentLimit (A)", type: "double", builder: "statorCurrentLimit" },
-          { id: "tolerance", label: "tolerance (deg)", type: "double", placeholder: "1.0", builder: "toleranceDegrees" },
+          { id: "tolerance", label: "tolerance (deg)", type: "double", placeholder: "1.0", builder: "tolerance" },
         ]},
         { title: "Control", fields: [
           { id: "kP", label: "kP", type: "double", builder: "pid", group: "pid" },
@@ -389,7 +389,7 @@
           { id: "kS", label: "kS", type: "double", builder: "feedforward", group: "ff" },
           { id: "kV", label: "kV", type: "double", builder: "feedforward", group: "ff" },
           { id: "kA", label: "kA", type: "double", builder: "feedforward", group: "ff" },
-          { id: "kG", label: "kG (gravity)", type: "double", builder: "gravity" },
+          { id: "kG", label: "kG (gravity)", type: "double", builder: "gravityGain" },
           { id: "mmCruise", label: "MM cruise (rps)", type: "double", builder: "motionMagic", group: "mm" },
           { id: "mmAccel", label: "MM accel (rps²)", type: "double", builder: "motionMagic", group: "mm" },
           { id: "mmJerk", label: "MM jerk (rps³)", type: "double", builder: "motionMagic", group: "mm" },
@@ -447,16 +447,20 @@
           { id: "inverted", label: "inverted", type: "bool", builder: "inverted" },
           { id: "brakeMode", label: "brakeMode", type: "bool", builder: "brakeMode" },
         ]},
+        { title: "Followers", fields: [
+          { id: "followers", label: "followers", type: "followers", builder: "follower" },
+        ]},
         { title: "Limits", fields: [
           { id: "currentLimit", label: "currentLimit (A)", type: "double", builder: "currentLimit" },
           { id: "statorCurrentLimit", label: "statorCurrentLimit (A)", type: "double", builder: "statorCurrentLimit" },
         ]},
-        { title: "Voltages", fields: [
-          { id: "intakeVoltage", label: "intake voltage", type: "double", placeholder: "6.0", builder: "intakeVoltage" },
-          { id: "outtakeVoltage", label: "outtake voltage", type: "double", placeholder: "-4.0", builder: "outtakeVoltage" },
-          { id: "holdVoltage", label: "hold voltage", type: "double", placeholder: "1.0", builder: "holdVoltage" },
+        { title: "Speeds", fields: [
+          { id: "intakeSpeed", label: "intake speed [-1,1]", type: "double", placeholder: "0.8", builder: "intakeSpeed" },
+          { id: "ejectSpeed", label: "eject speed [-1,1]", type: "double", placeholder: "-0.6", builder: "ejectSpeed" },
         ]},
         { title: "Detection", fields: [
+          { id: "stallAmps", label: "stall current (A)", type: "double", builder: "stallDetection", group: "stall" },
+          { id: "stallTime", label: "stall time (s)", type: "double", placeholder: "0.2", builder: "stallDetection", group: "stall" },
           { id: "beamBreak", label: "beam break DIO", type: "int", builder: "beamBreak" },
         ]},
       ],
@@ -665,17 +669,18 @@
       },
     },
     "intake": {
-      label: "Intake", sub: "Roller · beam-break",
+      label: "Intake", sub: "Roller · 2 motor + beam-break",
       mech: "roller",
       state: {
         name: "Intake",
         motor: 40,
         inverted: false, brakeMode: false,
         currentLimit: 40, statorCurrentLimit: 80,
-        intakeVoltage: 6.0, outtakeVoltage: -4.0, holdVoltage: 1.0,
+        intakeSpeed: 0.8, ejectSpeed: -0.6,
+        stallAmps: 25, stallTime: 0.2,
         beamBreak: 0,
       },
-      followers: {},
+      followers: { followers: [{ canId: 41, oppose: true }] },
     },
     "climber": {
       label: "Climber", sub: "Winch · dual arm",
