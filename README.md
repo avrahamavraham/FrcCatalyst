@@ -89,6 +89,15 @@ operatorController.b().onTrue(elevator.goTo("STOW"));
 
 ---
 
+## What's New in v0.3.5.1-beta
+
+- **The tools are now live on GitHub Pages.** No clone, no local server — just open [tomas-1226.github.io/FrcCatalyst/tools/](https://tomas-1226.github.io/FrcCatalyst/tools/) and use the Builder, Tuner, and Health Dashboard right from the browser.
+- **Builder upgrades**: localStorage persistence, **download as `.java`**, **full subsystem class** mode (wraps the config in a `SubsystemBase` skeleton), and **import** to populate the form from an existing `Foo.Config.builder()...build()` snippet.
+- **Tuner**: **Download gains JSON** — archive a working tune between events with one click.
+- **Health Dashboard**: **Download report** — text snapshot of every check, ready to paste into team chat when triaging.
+- **`RobotSafety.trippedTrigger()`** — returns a WPILib `Trigger` so you can bind safety responses in one line in `configureBindings()`.
+- **`HealthHistory`** — fixed-capacity ring buffer of recent fire/clear events; auto-fed by `HealthMonitor`, published at `/Catalyst/Health/History`, queryable from robot code.
+
 ## What's New in v0.3.5-beta
 
 - **`DifferentialWristMechanism` now uses Phoenix-6's native differential control** — `DifferentialMotionMagicVoltage` on the master with `DifferentialFollower` on the slave. Both targets are sent in one CAN frame and stay coordinated at firmware level. Slot 0 holds the pitch (average) gains; Slot 1 holds the roll (differential) gains, tunable separately via `.differentialPid(...)`. Thanks to **tcrvo** for flagging this on Chief Delphi.

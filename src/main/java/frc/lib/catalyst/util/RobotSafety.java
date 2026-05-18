@@ -6,6 +6,7 @@ import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.networktables.StringPublisher;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj2.command.button.Trigger;
 
 /**
  * Cross-mechanism safety watchdog driven by {@link HealthMonitor}.
@@ -80,6 +81,19 @@ public final class RobotSafety {
     /** True if the watchdog has tripped (sustained over-threshold faults). */
     public static boolean isTripped() {
         return tripped;
+    }
+
+    /**
+     * A WPILib {@link Trigger} that fires whenever the watchdog is tripped.
+     * Convenient for binding emergency-stop commands directly in
+     * {@code RobotContainer.configureBindings()}:
+     *
+     * <pre>{@code
+     * RobotSafety.trippedTrigger().onTrue(drive.stopCommand());
+     * }</pre>
+     */
+    public static Trigger trippedTrigger() {
+        return new Trigger(RobotSafety::isTripped);
     }
 
     /**

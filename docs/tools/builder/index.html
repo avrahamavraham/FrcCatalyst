@@ -175,13 +175,47 @@
     }
     .credit a { color: var(--accent2); text-decoration: none; }
     .credit a:hover { text-decoration: underline; }
+    .mode-toggle {
+      display: inline-flex; align-items: center; gap: 6px;
+      color: var(--muted); font-size: 12px; margin-right: 6px;
+      cursor: pointer; user-select: none;
+    }
+    .mode-toggle input { margin: 0; }
+    .persist-note {
+      margin-top: 8px; font-size: 11px; color: var(--muted);
+    }
+    .persist-note a { color: var(--accent2); text-decoration: none; }
+    .persist-note a:hover { text-decoration: underline; }
+    dialog {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      padding: 18px 22px;
+      max-width: 640px; width: 90vw;
+    }
+    dialog::backdrop { background: rgba(0,0,0,0.55); }
+    dialog h3 { color: var(--accent2); }
+    dialog textarea {
+      width: 100%; min-height: 240px;
+      background: var(--bg); color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-size: 12px; padding: 10px;
+      resize: vertical;
+    }
+    dialog .dialog-row {
+      display: flex; gap: 8px; justify-content: flex-end;
+      margin-top: 14px;
+    }
   </style>
 </head>
 <body>
 
 <header>
   <h1>Catalyst Builder</h1>
-  <span class="badge" id="version">v0.3.5</span>
+  <span class="badge" id="version">v0.3.5.1</span>
   <span class="hint">Generate ready-to-paste mechanism config code.</span>
 </header>
 
@@ -202,15 +236,36 @@
 
   <div class="preview-area">
     <div class="preview-head">
-      <h2>Generated config</h2>
+      <h2>Generated <span id="modeLabel">config</span></h2>
       <div>
+        <label class="mode-toggle">
+          <input type="checkbox" id="fullClassToggle"> <span>Full subsystem class</span>
+        </label>
+        <button class="btn ghost" id="importBtn" title="Paste an existing config snippet to populate the form">Import</button>
+        <button class="btn ghost" id="downloadBtn" title="Download as .java file">Download</button>
         <button class="btn ghost" id="resetBtn">Reset</button>
         <button class="btn" id="copyBtn">Copy</button>
       </div>
     </div>
     <pre id="preview"></pre>
+    <div class="persist-note" id="persistNote">Auto-saved to this browser • <a href="#" id="clearAllBtn">clear all saved data</a></div>
   </div>
 </main>
+
+<!-- Import dialog -->
+<dialog id="importDialog">
+  <h3 style="margin-top:0">Import existing config</h3>
+  <p style="color:var(--muted);font-size:13px;margin-top:0">
+    Paste a Catalyst <code>Foo.Config.builder()...build()</code> snippet below.
+    The form on the left will populate from it. Anything that doesn't parse
+    cleanly is skipped.
+  </p>
+  <textarea id="importInput" placeholder="LinearMechanism.Config.builder()&#10;    .name(&quot;Elevator&quot;)&#10;    .motor(20)..."></textarea>
+  <div class="dialog-row">
+    <button class="btn ghost" id="importCancelBtn">Cancel</button>
+    <button class="btn" id="importApplyBtn">Import</button>
+  </div>
+</dialog>
 
 <div class="credit">
   Inspired by <a href="https://yteam3211.github.io/frc-catalyst-subsystem-generator" target="_blank" rel="noopener">tcrvo / yteam3211's FRC Catalyst Subsystem Generator</a> — thanks!
@@ -511,6 +566,45 @@
   let currentMech = "linear";
   const formState = {}; // { mechId: { fieldId: value } }
   const FOLLOWER_STATE = {}; // { mechId: { fieldId: [{canId, oppose}] } }
+  let fullClassMode = false;
+
+  // localStorage persistence — key includes a version so old saved state
+  // gets cleared if the schema changes incompatibly.
+  const STORAGE_KEY = "catalyst-builder-v1";
+
+  function persist() {
+    try {
+      const blob = {
+        currentMech, formState, FOLLOWER_STATE, fullClassMode,
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(blob));
+    } catch {
+      // private mode / quota — silently skip
+    }
+  }
+
+  function restore() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      const blob = JSON.parse(raw);
+      if (blob.currentMech && SCHEMA[blob.currentMech]) currentMech = blob.currentMech;
+      if (blob.formState) Object.assign(formState, blob.formState);
+      if (blob.FOLLOWER_STATE) Object.assign(FOLLOWER_STATE, blob.FOLLOWER_STATE);
+      if (typeof blob.fullClassMode === "boolean") fullClassMode = blob.fullClassMode;
+    } catch {
+      // corrupted blob — start fresh
+    }
+  }
+
+  function clearAllSaved() {
+    try { localStorage.removeItem(STORAGE_KEY); } catch {}
+    Object.keys(formState).forEach(k => delete formState[k]);
+    Object.keys(FOLLOWER_STATE).forEach(k => delete FOLLOWER_STATE[k]);
+    fullClassMode = false;
+    document.getElementById("fullClassToggle").checked = false;
+    buildForm(); render();
+  }
 
   function buildSidebar() {
     const list = document.getElementById("mechList");
@@ -715,8 +809,219 @@
       .replace(/(\/\/[^\n]*)/g, '<span class="cmt">$1</span>');
   }
 
+  // Wraps the config snippet in a full subsystem class. The teleop /
+  // default-command pattern is the one most teams reach for first; teams
+  // can delete the bits they don't need.
+  function generateFullClass() {
+    const schema = SCHEMA[currentMech];
+    const state = formState[currentMech] || {};
+    const rawName = state.name || schema.label;
+    const cls = pascal(rawName) + "Subsystem";
+    const field = camel(rawName);
+    const inlined = generate().split("\n");
+
+    const lines = [];
+    lines.push(`package frc.robot.subsystems;`);
+    lines.push(``);
+    if (currentMech === "pneumatic") {
+      lines.push(`import edu.wpi.first.wpilibj.PneumaticsModuleType;`);
+    }
+    lines.push(`import edu.wpi.first.wpilibj2.command.SubsystemBase;`);
+    lines.push(`import frc.lib.catalyst.mechanisms.${schema.java};`);
+    lines.push(``);
+    lines.push(`/** Auto-generated by the Catalyst Builder. Tweak freely. */`);
+    lines.push(`public class ${cls} extends SubsystemBase {`);
+    lines.push(``);
+    lines.push(`    private final ${schema.java} ${field};`);
+    lines.push(``);
+    lines.push(`    public ${cls}() {`);
+    // Re-emit config with the right indentation
+    inlined.forEach(line => {
+      lines.push(`        ${line.replace(new RegExp(`^${schema.java} ${camel(rawName)} = `), `this.${field} = `)}`);
+    });
+    lines.push(`    }`);
+    lines.push(``);
+    lines.push(`    /** The underlying Catalyst mechanism — wire commands and triggers through this. */`);
+    lines.push(`    public ${schema.java} get() {`);
+    lines.push(`        return ${field};`);
+    lines.push(`    }`);
+    lines.push(``);
+    lines.push(`    @Override`);
+    lines.push(`    public void periodic() {`);
+    lines.push(`        // Catalyst mechanisms handle their own telemetry; nothing to do here by default.`);
+    lines.push(`    }`);
+    lines.push(`}`);
+    return lines.join("\n");
+  }
+
+  function pascal(s) {
+    const c = camel(s);
+    return c ? c[0].toUpperCase() + c.slice(1) : s;
+  }
+
+  function currentCode() {
+    return fullClassMode ? generateFullClass() : generate();
+  }
+
   function render() {
-    document.getElementById("preview").innerHTML = highlight(generate());
+    document.getElementById("preview").innerHTML = highlight(currentCode());
+    document.getElementById("modeLabel").textContent = fullClassMode ? "subsystem class" : "config";
+    persist();
+  }
+
+  function downloadFilename() {
+    const schema = SCHEMA[currentMech];
+    const rawName = (formState[currentMech] && formState[currentMech].name) || schema.label;
+    return fullClassMode
+        ? pascal(rawName) + "Subsystem.java"
+        : pascal(rawName) + "Config.java";
+  }
+
+  function triggerDownload(text, filename) {
+    const blob = new Blob([text], { type: "text/x-java-source;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 250);
+  }
+
+  // ============================================================
+  // Import: parse a pasted .Config.builder()...build() snippet and try
+  // to populate the form. Best-effort — anything we don't recognize is
+  // silently skipped rather than throwing.
+  // ============================================================
+  function tryImport(text) {
+    // Detect mechanism
+    const m = /(\w+Mechanism)\.Config\.builder\(\)/.exec(text);
+    if (!m) {
+      alert("Couldn't find a Foo.Config.builder() call in the pasted snippet.");
+      return false;
+    }
+    const javaName = m[1];
+    const mechId = Object.keys(SCHEMA).find(k => SCHEMA[k].java === javaName);
+    if (!mechId) {
+      alert("Unknown mechanism: " + javaName);
+      return false;
+    }
+
+    currentMech = mechId;
+    formState[mechId] = {};
+    FOLLOWER_STATE[mechId] = {};
+    const state = formState[mechId];
+    const followers = FOLLOWER_STATE[mechId];
+
+    // Build a lookup of builderName → field schema entry
+    const schema = SCHEMA[mechId];
+    const byBuilder = {};
+    const followerFields = {};
+    schema.groups.forEach(g => g.fields.forEach(f => {
+      if (!f.builder) return;
+      if (f.type === "followers") { followerFields[f.builder] = f; return; }
+      (byBuilder[f.builder] = byBuilder[f.builder] || []).push(f);
+    }));
+
+    // Match every .foo(args) invocation
+    const callRe = /\.(\w+)\s*\(([^)]*)\)/g;
+    let match;
+    while ((match = callRe.exec(text)) !== null) {
+      const fnName = match[1];
+      const argsRaw = match[2].trim();
+      if (fnName === "builder" || fnName === "build") continue;
+
+      const args = splitArgs(argsRaw);
+
+      // Followers
+      if (followerFields[fnName]) {
+        const canId = parseInt(args[0], 10);
+        const oppose = args[1] && args[1].trim() === "true";
+        if (!isNaN(canId)) {
+          followers[fnName] = followers[fnName] || [];
+          followers[fnName].push({ canId, oppose });
+        }
+        continue;
+      }
+
+      // Pneumatic special cases
+      if (mechId === "pneumatic") {
+        if (fnName === "doubleSolenoid") {
+          state.moduleType = (args[0] || "PneumaticsModuleType.REVPH").split(".").pop();
+          state.isDouble = true;
+          state.forwardChannel = parseInt(args[1], 10);
+          state.reverseChannel = parseInt(args[2], 10);
+          continue;
+        }
+        if (fnName === "singleSolenoid") {
+          state.moduleType = (args[0] || "PneumaticsModuleType.REVPH").split(".").pop();
+          state.isDouble = false;
+          state.forwardChannel = parseInt(args[1], 10);
+          continue;
+        }
+        if (fnName === "compressor") { state.attachCompressor = true; continue; }
+        if (fnName === "requirePressureAbove") { state.minPressurePSI = parseFloat(args[0]); continue; }
+      }
+
+      // Regular builders
+      const targets = byBuilder[fnName];
+      if (!targets) continue;
+      if (targets.length === 1 && !targets[0].group) {
+        state[targets[0].id] = coerce(args[0], targets[0]);
+      } else {
+        // Grouped multi-arg builder (pid, feedforward, range, motionMagic, …)
+        targets.forEach((f, i) => {
+          if (args[i] !== undefined) state[f.id] = coerce(args[i], f);
+        });
+      }
+
+      if (fnName === "name") state.name = stripQuotes(args[0]);
+    }
+
+    return true;
+  }
+
+  function splitArgs(s) {
+    // Naïve but good-enough comma splitter that respects strings.
+    const out = [];
+    let depth = 0, inStr = false, start = 0;
+    for (let i = 0; i < s.length; i++) {
+      const c = s[i];
+      if (inStr) {
+        if (c === "\\") { i++; continue; }
+        if (c === '"') inStr = false;
+        continue;
+      }
+      if (c === '"') inStr = true;
+      else if (c === "(") depth++;
+      else if (c === ")") depth--;
+      else if (c === "," && depth === 0) {
+        out.push(s.slice(start, i).trim());
+        start = i + 1;
+      }
+    }
+    if (start < s.length) out.push(s.slice(start).trim());
+    return out;
+  }
+
+  function stripQuotes(s) {
+    if (!s) return s;
+    s = s.trim();
+    if (s.startsWith('"') && s.endsWith('"')) return s.slice(1, -1);
+    return s;
+  }
+
+  function coerce(raw, field) {
+    if (raw === undefined) return undefined;
+    const v = raw.trim();
+    if (field.type === "text") return stripQuotes(v);
+    if (field.type === "bool") return v === "true";
+    if (field.type === "motorType" || field.type === "enum") {
+      // Accept either "MotorType.KRAKEN_X60" or "KRAKEN_X60"
+      return v.split(".").pop().replace(/[^A-Z0-9_]/gi, "");
+    }
+    const n = Number(v);
+    return isNaN(n) ? undefined : n;
   }
 
   // ============================================================
@@ -724,13 +1029,17 @@
   // ============================================================
   document.getElementById("copyBtn").onclick = async () => {
     try {
-      await navigator.clipboard.writeText(generate());
+      await navigator.clipboard.writeText(currentCode());
       const t = document.getElementById("toast");
       t.classList.add("show");
       setTimeout(() => t.classList.remove("show"), 900);
     } catch {
       alert("Copy failed — your browser may block clipboard from file://. Try serving over HTTP.");
     }
+  };
+
+  document.getElementById("downloadBtn").onclick = () => {
+    triggerDownload(currentCode(), downloadFilename());
   };
 
   document.getElementById("resetBtn").onclick = () => {
@@ -740,6 +1049,34 @@
     buildForm(); render();
   };
 
+  document.getElementById("fullClassToggle").onchange = e => {
+    fullClassMode = e.target.checked;
+    render();
+  };
+
+  document.getElementById("clearAllBtn").onclick = e => {
+    e.preventDefault();
+    if (!confirm("Clear all saved Builder data for every mechanism?")) return;
+    clearAllSaved();
+  };
+
+  const importDialog = document.getElementById("importDialog");
+  document.getElementById("importBtn").onclick = () => {
+    document.getElementById("importInput").value = "";
+    importDialog.showModal();
+  };
+  document.getElementById("importCancelBtn").onclick = () => importDialog.close();
+  document.getElementById("importApplyBtn").onclick = () => {
+    const text = document.getElementById("importInput").value;
+    if (tryImport(text)) {
+      importDialog.close();
+      buildSidebar(); buildForm(); render();
+    }
+  };
+
+  // Bootstrap
+  restore();
+  document.getElementById("fullClassToggle").checked = fullClassMode;
   buildSidebar();
   buildForm();
   render();

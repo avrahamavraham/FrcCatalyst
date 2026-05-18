@@ -72,9 +72,11 @@ public final class HealthMonitor {
             if (t == HealthCheck.Transition.FIRED) {
                 publishState(c);
                 relayToAlertManager(c, true);
+                HealthHistory.record(c, HealthHistory.Kind.FIRED);
             } else if (t == HealthCheck.Transition.CLEARED) {
                 publishState(c);
                 relayToAlertManager(c, false);
+                HealthHistory.record(c, HealthHistory.Kind.CLEARED);
             } else if (c.isFiring()) {
                 // Live-update detail string for still-firing checks (e.g., a
                 // temperature alert that updates "92°C" → "95°C" without

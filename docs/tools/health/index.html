@@ -256,6 +256,7 @@
     <button class="secondary" data-filter="firing">Firing only</button>
     <button class="secondary" data-filter="errors">Errors only</button>
     <input type="text" id="search" placeholder="filter by name…" />
+    <button class="secondary" id="downloadReportBtn" title="Download a plain-text snapshot of the current state">Download report</button>
   </div>
 
   <div id="empty" class="empty">
@@ -568,6 +569,38 @@ document.querySelectorAll('.toolbar [data-filter]').forEach((b) => {
   });
 });
 $('search').addEventListener('input', (e) => { state.search = e.target.value; render(); });
+
+$('downloadReportBtn').addEventListener('click', () => {
+  const lines = [];
+  const stamp = new Date().toISOString();
+  lines.push(`Catalyst Health Report — ${stamp}`);
+  lines.push(`Errors: ${$('errorCount').textContent}    Warns: ${$('warnCount').textContent}    Info: ${$('infoCount').textContent}`);
+  lines.push('='.repeat(78));
+  const names = [...state.subsystems.keys()].sort();
+  if (names.length === 0) {
+    lines.push('(no subsystems discovered yet — connect to a robot first)');
+  }
+  for (const subName of names) {
+    lines.push('');
+    lines.push(`[${subName}]`);
+    const checks = state.subsystems.get(subName);
+    const keys = [...checks.keys()].sort();
+    for (const id of keys) {
+      const c = checks.get(id);
+      const sev = (c.severity || 'INFO').padEnd(5);
+      const state_ = c.firing ? 'FIRING ' : '   ok  ';
+      const detail = c.detail ? ` — ${c.detail}` : '';
+      lines.push(`  ${state_} ${sev}  ${id.padEnd(28)} ${c.description || ''}${detail}`);
+    }
+  }
+  const text = lines.join('\n');
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `catalyst-health-${stamp.slice(0, 19).replace(/[:T]/g, '-')}.txt`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 250);
+});
 
 setInterval(() => {
   const el = $('latency');

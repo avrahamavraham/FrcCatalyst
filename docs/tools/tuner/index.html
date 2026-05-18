@@ -297,6 +297,7 @@
     <span id="latency">--</span>
   </div>
   <button class="secondary" id="resetAllBtn">Reset all to defaults</button>
+  <button class="secondary" id="downloadJsonBtn" title="Download a JSON snapshot of every tuned gain">Download JSON</button>
   <button class="secondary" id="exportBtn">Export as Java</button>
   <button id="lockBtn">Lock for competition</button>
 </footer>
@@ -820,6 +821,31 @@ $('exportBtn').addEventListener('click', () => {
   }
   $('exportContent').textContent = blocks.join('\n\n') || '(no mechanisms discovered yet)';
   $('exportDialog').showModal();
+});
+
+$('downloadJsonBtn').addEventListener('click', () => {
+  const out = {};
+  const names = [...state.mechanisms.keys()].sort();
+  for (const mechName of names) {
+    const m = state.mechanisms.get(mechName);
+    out[mechName] = { gains: {}, motionMagic: {} };
+    for (const [key, g] of m.gains.entries()) {
+      if (key.endsWith('__MM')) {
+        out[mechName].motionMagic[key.slice(0, -4)] = g.value;
+      } else {
+        out[mechName].gains[key] = g.value;
+      }
+    }
+  }
+  const blob = new Blob(
+      [JSON.stringify({ exportedAt: new Date().toISOString(), tuner: 'catalyst', mechanisms: out }, null, 2)],
+      { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `catalyst-gains-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 250);
+  toast(`Saved ${Object.keys(out).length} mechanisms to JSON`, 'ok');
 });
 
 $('closeExportBtn').addEventListener('click', () => $('exportDialog').close());

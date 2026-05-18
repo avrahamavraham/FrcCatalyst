@@ -5,6 +5,26 @@ All notable changes to FrcCatalyst are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.3.5.1-beta] — 2026-05-18
+
+### Tools (hosted on GitHub Pages)
+- **`docs/tools/` landing page** — clean overview that links to all three live tools (Builder, Tuner, Health Dashboard). The same pages are served directly from the Pages site at `tomas-1226.github.io/FrcCatalyst/tools/...` so teams don't have to clone anything to use them.
+- **Catalyst Builder enhancements**:
+  - **localStorage persistence.** Form state survives page reloads.
+  - **Download as `.java`** — one click writes the generated code to a properly-named file ready to drop into `src/main/java/`.
+  - **Full subsystem class mode** — toggle wraps the config in a complete `public class FooSubsystem extends SubsystemBase` skeleton with `get()` accessor and `periodic()` hook.
+  - **Import existing config** — paste any `Foo.Config.builder()...build()` snippet and the form populates itself.
+  - **Clear all saved data** link in the footer.
+- **Tuner: Download gains JSON** — saves a snapshot of every tuned value (including Motion Magic constants) to a timestamped `.json` file. Useful for archiving working tunes between events.
+- **Health Dashboard: Download report** — plain-text snapshot of every check's current state. Drop into a team chat when triaging.
+
+### Lib additions
+- **`RobotSafety.trippedTrigger()`** — returns a WPILib `Trigger` for direct binding in `RobotContainer.configureBindings()`:
+  ```java
+  RobotSafety.trippedTrigger().onTrue(drive.stopCommand());
+  ```
+- **`HealthHistory`** — fixed-capacity ring buffer (default 100) of recent fire / clear events. Automatically fed by `HealthMonitor` on every transition and published as a string array at `/Catalyst/Health/History`. Queryable from team code via `HealthHistory.snapshot()` for post-match triage.
+
 ## [0.3.5-beta] — 2026-05-18
 
 ### Fixed

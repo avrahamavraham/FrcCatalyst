@@ -6,32 +6,107 @@ has_children: false
 ---
 
 # Catalyst Tools
+{: .no_toc }
 
-A small toolbox that ships next to the library. Everything here is static —
-GitHub Pages serves it directly, nothing to install.
+Browser-based, zero-install tooling that ships next to the library.
+{: .fs-6 .fw-300 }
+
+## Table of contents
+{: .no_toc .text-delta }
+
+1. TOC
+{:toc}
+
+---
+
+## Open a tool
+
+Everything below is hosted right on this GitHub Pages site — no download,
+no `npm install`, no build step. Click and go. The same files also live in
+the repo under `docs/tools/` if you want to run them off your laptop while
+disconnected from the internet.
+
+| Tool | What it does | Open |
+|---|---|---|
+| 🛠️ **Catalyst Builder** | Form-driven Java code generator for every Catalyst mechanism. Fill the form, copy or download the snippet, paste into your subsystem. | [Open →](builder/) |
+| 🎚 **Catalyst Tuner** | Live NT4 PID + Motion Magic tuner. Connect to your robot or simulator, drag sliders, export the final gains back to Java. | [Open →](tuner/) |
+| 🩺 **Health Dashboard** | Live NT4 read-only health monitor. Per-subsystem cards, severity filters, search. Pair with the `RobotSafety` watchdog. | [Open →](health/) |
+
+> All three connect over plain NT4 WebSocket (port `5810`) and pull msgpack
+> from a public CDN. Nothing is uploaded anywhere, and there's no telemetry
+> back to the library.
+
+---
+
+## Catalyst Builder
+
+Form on the left, generated Java on the right. Pick a mechanism, fill in
+CAN IDs, gear ratios, PID gains, and any followers — the code preview
+updates live. Two output modes:
+
+- **Config snippet** (default) — just the `Foo.Config.builder()...build()`
+  call. Drop it inside your existing `RobotContainer` or subsystem.
+- **Full subsystem class** — wraps the config in a complete
+  `public class FooSubsystem extends SubsystemBase` skeleton with the
+  default-command pattern teams typically want. Toggle at the top of the
+  preview pane.
+
+Other niceties shipped in v0.3.5.1:
+
+- **Persistence.** Your work is saved to `localStorage` per mechanism. Open
+  the page tomorrow and the form is still filled in.
+- **Download as `.java`.** One-click download of the generated code as a
+  file ready to drop into `src/main/java/`.
+- **Import existing config.** Paste any `Foo.Config.builder()...build()`
+  snippet (yours or a teammate's) and the form fills itself in from it.
+
+The Builder is inspired by [tcrvo / yteam3211's FRC Catalyst Subsystem Generator](https://yteam3211.github.io/frc-catalyst-subsystem-generator).
+
+---
 
 ## Catalyst Tuner
 
 A browser-based live tuner for every PID and Motion Magic gain Catalyst
 v0.3.2+ publishes under `Catalyst/Tuning/`.
 
-- Open `docs/tools/tuner/index.html` directly, or visit it on the
-  documentation site once Pages is built.
 - Enter the robot's host (`10.TE.AM.2` on the field, `roborio-####-frc.local`
   on tethered, `127.0.0.1` when running the simulator) and click Connect.
 - The tuner subscribes to `Catalyst/Tuning/` and auto-discovers mechanisms.
 - Drag a slider or type a number — the change is written back over NT4
   immediately. The mechanism re-applies it on the next periodic.
-- "Reset all to defaults" rewrites every gain to the value it had when the
-  tuner first saw it (which is the value from your Config builder).
-- "Export as Java" produces builder-snippet code you can paste straight back
-  into your robot project.
-- "Lock for competition" publishes a hint string to NT — but the real
-  competition lockdown is calling `TunableNumber.disableTuning()` once in
-  `robotInit()`. See [docs/advanced/tuning.md](../advanced/tuning.html).
+- **Reset all to defaults** rewrites every gain to the value it had when
+  the tuner first saw it (which is the value from your Config builder).
+- **Export as Java** produces builder-snippet code you can paste straight
+  back into your robot project.
+- **Download gains JSON** saves a snapshot of every tuned value to a
+  `.json` file — useful for archiving working tunes between events.
+- **Lock for competition** publishes a hint string to NT, but the real
+  lockdown is calling `TunableNumber.disableTuning()` once in
+  `robotInit()`. See [the live tuning guide](../advanced/tuning.html).
 
 The tuner uses the standard NT4 WebSocket protocol on port 5810 and the
 `@msgpack/msgpack` library loaded from esm.sh. No build step, no install.
+
+---
+
+## Health Dashboard
+
+Single-file viewer that subscribes to `/Catalyst/Health/...` and shows
+every registered `HealthCheck` grouped by subsystem.
+
+- Severity-colored status pills (HEALTHY / WARN / ERR).
+- Filter buttons: **All / Firing only / Errors only** plus a search box.
+- ERROR-level firing dots pulse so they're impossible to miss across the
+  pit.
+- **Download report** writes a plain-text snapshot of every check's
+  current state — paste into a team chat when you're triaging.
+- Lights up `/Catalyst/Safety/Tripped` so when the `RobotSafety` watchdog
+  fires you see it at the top of the page.
+
+See [docs/advanced/health.md](../advanced/health.html) for the API and
+how to add your own checks.
+
+---
 
 ## AdvantageScope tab bundles
 
@@ -75,9 +150,11 @@ between releases. A portable bundle that lists field paths + the intended
 chart shape stays useful across AS versions, and works for teams running
 Elastic or Glass instead.
 
+---
+
 ## Hosting
 
-`docs/` is a Jekyll site published via GitHub Pages. The tuner is a single
-self-contained HTML file with no build step, so it works either at
-`https://frccatalyst.github.io/FrcCatalyst/tools/tuner/` once Pages is
-rebuilt, or by opening the local `index.html` directly in any modern browser.
+`docs/` is a Jekyll site published via GitHub Pages. All three tools are
+single self-contained HTML files with no build step, so they work either
+on the docs site or by opening the local `index.html` directly in any
+modern browser.
