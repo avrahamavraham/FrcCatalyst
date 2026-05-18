@@ -342,6 +342,57 @@ MotorType custom = new MotorType(
 > gravity feedforward in 0.3.2 or earlier and hand-tuned `kG`, re-check
 > the value after upgrading.
 
+## CANRegistry
+
+A process-wide registry of every CAN device the robot has claimed. Every
+Catalyst motor (and any CANcoder it fuses / syncs / reads) calls
+`CANRegistry.register(...)` automatically when its builder runs. If two
+devices try to claim the same `(bus, canId)` with different names, the
+registry throws a `CANConflictException` with both sides of the
+collision named. Identical re-registrations are silently idempotent.
+
+```java
+// Manual registration — usually you let mechanisms do it, but useful
+// when you control raw hardware outside the library.
+CANRegistry.register("ShooterTop", 30, "rio", "Kraken X60");
+
+// Look up what's on a given id:
+CANRegistry.lookup(30, "rio").ifPresent(e ->
+    System.out.println(e.name() + " (" + e.type() + ")"));
+
+// Get the full plan (sorted by bus then id):
+for (var e : CANRegistry.all()) System.out.println(e);
+```
+
+The full plan is also published at `/Catalyst/CAN/Devices` as a
+pipe-delimited string array for the Health Dashboard.
+
+The most ergonomic way to populate it is to use the [CAN ID
+Planner](../tools/canids/) and click **Generate Catalyst Java**. The
+exported `CANIds.java` looks like this:
+
+```java
+public final class CANIds {
+    public static final String CANIVORE = "canivore";
+    public static final String RIO      = "";
+
+    public static final int FRONT_LEFT_DRIVE  = 1;
+    public static final int FRONT_LEFT_STEER  = 2;
+    // ...
+
+    static {
+        CANRegistry.register("FrontLeftDrive", FRONT_LEFT_DRIVE, CANIVORE, "Kraken X60");
+        CANRegistry.register("FrontLeftSteer", FRONT_LEFT_STEER, CANIVORE, "Kraken X60");
+        // ...
+    }
+    public static void init() {}
+}
+```
+
+Call `CANIds.init()` once from `Robot.robotInit()` and any wiring
+mistake — a missing device, a wrong name, a duplicate id — surfaces
+immediately at boot instead of mid-match.
+
 ## TunableNumber + TunableGains
 
 Live-tunable doubles backed by NetworkTables. `TunableNumber` is a

@@ -161,10 +161,30 @@
       background: var(--bg); border: 1px solid var(--border);
       border-radius: 10px; padding: 14px;
       font-family: ui-monospace, monospace; font-size: 12px;
-      max-height: 240px; overflow: auto;
+      max-height: 360px; overflow: auto;
       white-space: pre;
     }
     .actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+    .seg-mode {
+      display: inline-flex; gap: 0;
+      border: 1px solid var(--border); border-radius: 8px;
+      overflow: hidden; margin-bottom: 8px;
+    }
+    .seg-btn {
+      background: transparent; color: var(--muted);
+      border: 0; padding: 6px 14px; font-size: 12px;
+      cursor: pointer; font-family: inherit;
+      transition: all 0.12s ease;
+    }
+    .seg-btn + .seg-btn { border-left: 1px solid var(--border); }
+    .seg-btn:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+    .seg-btn.active {
+      background: var(--accent); color: #fff;
+    }
+    .output .kw  { color: #ef798a; }
+    .output .str { color: #9ee493; }
+    .output .num { color: #f4d35e; }
+    .output .cmt { color: #6a7088; font-style: italic; }
 
     .credit { padding: 14px 28px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--border); }
     .credit a { color: var(--accent2); text-decoration: none; }
@@ -244,11 +264,20 @@
       Add your first device on the left, or pick a preset.
     </div>
 
-    <h2 style="margin-top:22px">Wiring summary</h2>
+    <h2 style="margin-top:22px">Output</h2>
+    <div class="seg-mode">
+      <button class="seg-btn active" data-mode="text">Wiring summary</button>
+      <button class="seg-btn" data-mode="java">Catalyst Java</button>
+    </div>
     <pre id="output" class="output">— add devices to see the summary —</pre>
-    <div class="actions">
-      <button class="btn" id="copyOutput">Copy summary</button>
+    <div class="actions" id="textActions">
+      <button class="btn" id="copyOutput">Copy</button>
       <button class="btn ghost" id="downloadTxt">Download .txt</button>
+    </div>
+    <div class="actions" id="javaActions" style="display:none">
+      <input type="text" id="javaPkg" placeholder="frc.robot" value="frc.robot" style="background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:7px 10px;font-size:12px;font-family:ui-monospace,monospace;flex:1">
+      <button class="btn" id="copyJava">Copy</button>
+      <button class="btn ghost" id="downloadJava">Download CANIds.java</button>
     </div>
   </div>
 </main>
@@ -339,30 +368,7 @@
     $("sumConflicts").textContent = conflicts.size;
     $("conflictCard").classList.toggle("err",  conflicts.size > 0);
 
-    // Output summary
-    const buses = ["canivore", "rio"];
-    const lines = [];
-    if (devices.length === 0) {
-      $("output").textContent = "— add devices to see the summary —";
-    } else {
-      for (const bus of buses) {
-        const onBus = sorted.filter(d => d.bus === bus);
-        if (onBus.length === 0) continue;
-        lines.push(`[${bus}]`);
-        for (const d of onBus) {
-          const conflict = conflicts.has(d._i) ? "  ⚠ conflict" : "";
-          lines.push(`  ${String(d.id).padStart(3, " ")}  ${(d.type).padEnd(12, " ")}  ${d.name || ""}${conflict}`);
-        }
-        lines.push("");
-      }
-      if (conflicts.size > 0) {
-        lines.push(`# ${conflicts.size} conflicting ID(s) — same CAN ID on the same bus.`);
-      } else {
-        lines.push(`# No conflicts. ${devices.length} device(s) planned.`);
-      }
-      $("output").textContent = lines.join("\n");
-    }
-
+    renderOutput(sorted, conflicts);
     save();
     // Wire remove buttons
     list.querySelectorAll(".btn.danger").forEach(b => {
@@ -399,12 +405,163 @@
     render();
   };
 
+  // -------------------------------------------------------------
+  // Output rendering — text summary OR Catalyst Java
+  // -------------------------------------------------------------
+  let outputMode = "text";   // "text" | "java"
+
+  function renderOutput(sorted, conflicts) {
+    if (devices.length === 0) {
+      $("output").textContent = "— add devices to see the output —";
+      return;
+    }
+    if (outputMode === "text") {
+      $("output").textContent = buildText(sorted, conflicts);
+    } else {
+      $("output").innerHTML = highlightJava(buildJava(sorted, conflicts));
+    }
+  }
+
+  function buildText(sorted, conflicts) {
+    const buses = ["canivore", "rio"];
+    const lines = [];
+    for (const bus of buses) {
+      const onBus = sorted.filter(d => d.bus === bus);
+      if (onBus.length === 0) continue;
+      lines.push(`[${bus}]`);
+      for (const d of onBus) {
+        const conflict = conflicts.has(d._i) ? "  ⚠ conflict" : "";
+        lines.push(`  ${String(d.id).padStart(3, " ")}  ${(d.type).padEnd(12, " ")}  ${d.name || ""}${conflict}`);
+      }
+      lines.push("");
+    }
+    lines.push(conflicts.size > 0
+        ? `# ${conflicts.size} conflicting ID(s) — same CAN ID on the same bus.`
+        : `# No conflicts. ${devices.length} device(s) planned.`);
+    return lines.join("\n");
+  }
+
+  // Turn a free-form device name into a SCREAMING_SNAKE_CASE constant.
+  function toConst(s) {
+    if (!s) return "UNNAMED";
+    return s.replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+            .replace(/[^A-Za-z0-9]+/g, "_")
+            .replace(/^_+|_+$/g, "")
+            .toUpperCase() || "UNNAMED";
+  }
+
+  function buildJava(sorted, conflicts) {
+    const pkg = ($("javaPkg").value.trim() || "frc.robot");
+    const out = [];
+    out.push(`package ${pkg};`);
+    out.push(``);
+    out.push(`import frc.lib.catalyst.hardware.CANRegistry;`);
+    out.push(``);
+    out.push(`/**`);
+    out.push(` * Generated by the Catalyst CAN ID Planner.`);
+    out.push(` * Source of truth for every CAN device on this robot.`);
+    out.push(` *`);
+    out.push(` * Just referencing one of these constants triggers the static`);
+    out.push(` * initializer, which pre-registers every planned device with`);
+    out.push(` * {@link CANRegistry}. If a mechanism later tries to claim an`);
+    out.push(` * id that isn't in this file, or claims one with a different`);
+    out.push(` * name, CANRegistry throws a CANConflictException at robotInit.`);
+    out.push(` */`);
+    out.push(`public final class CANIds {`);
+    out.push(``);
+    out.push(`    /** Bus name passed to TalonFX / CANcoder for devices on the CANivore. */`);
+    const canivoreUsed = sorted.some(d => d.bus === "canivore");
+    const rioUsed      = sorted.some(d => d.bus === "rio");
+    if (canivoreUsed) out.push(`    public static final String CANIVORE = "canivore";`);
+    if (rioUsed)      out.push(`    public static final String RIO      = "";`);
+    out.push(``);
+
+    const groups = [
+      { bus: "canivore", title: "CANivore bus" },
+      { bus: "rio",      title: "roboRIO CAN bus" },
+    ];
+    for (const g of groups) {
+      const onBus = sorted.filter(d => d.bus === g.bus);
+      if (onBus.length === 0) continue;
+      out.push(`    // -- ${g.title} ----------------------------------------`);
+      for (const d of onBus) {
+        const c = conflicts.has(d._i) ? "  // ⚠ CONFLICT — same id used twice" : "";
+        out.push(`    public static final int ${toConst(d.name).padEnd(28)} = ${d.id};${c}`);
+      }
+      out.push(``);
+    }
+
+    out.push(`    private CANIds() {}`);
+    out.push(``);
+    out.push(`    static {`);
+    out.push(`        // Pre-register every planned device. Catalyst mechanisms`);
+    out.push(`        // re-claim these ids when their builders run; matching`);
+    out.push(`        // claims are idempotent, mismatched ones throw.`);
+    for (const d of sorted) {
+      const constName = toConst(d.name);
+      const busRef = d.bus === "canivore" ? "CANIVORE" : "RIO";
+      out.push(`        CANRegistry.register("${d.name}", ${constName}, ${busRef}, "${d.type}");`);
+    }
+    out.push(`    }`);
+    out.push(``);
+    out.push(`    /**`);
+    out.push(`     * Touch the class so its static initializer runs early,`);
+    out.push(`     * e.g. from Robot.robotInit() before subsystem construction.`);
+    out.push(`     * This makes conflicts surface immediately at boot.`);
+    out.push(`     */`);
+    out.push(`    public static void init() { /* loading the class is enough */ }`);
+    out.push(`}`);
+    return out.join("\n");
+  }
+
+  function highlightJava(code) {
+    return code
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/(\".*?\")/g, '<span class="str">$1</span>')
+        .replace(/\b(package|import|public|final|class|static|int|String|private|void)\b/g, '<span class="kw">$1</span>')
+        .replace(/\b(\d+)\b/g, '<span class="num">$1</span>')
+        .replace(/(\/\/[^\n]*)/g, '<span class="cmt">$1</span>');
+  }
+
+  // -------------------------------------------------------------
+  // Mode switching + actions
+  // -------------------------------------------------------------
+  document.querySelectorAll(".seg-btn").forEach(b => {
+    b.onclick = () => {
+      document.querySelectorAll(".seg-btn").forEach(x => x.classList.remove("active"));
+      b.classList.add("active");
+      outputMode = b.dataset.mode;
+      $("textActions").style.display = outputMode === "text" ? "" : "none";
+      $("javaActions").style.display = outputMode === "java" ? "" : "none";
+      render();
+    };
+  });
+
+  $("javaPkg").addEventListener("input", () => { if (outputMode === "java") render(); });
+
   $("copyOutput").onclick = async () => {
     try {
       await navigator.clipboard.writeText($("output").textContent);
       $("copyOutput").textContent = "Copied ✓";
-      setTimeout(() => $("copyOutput").textContent = "Copy summary", 900);
+      setTimeout(() => $("copyOutput").textContent = "Copy", 900);
     } catch { alert("Clipboard blocked."); }
+  };
+
+  $("copyJava").onclick = async () => {
+    try {
+      await navigator.clipboard.writeText($("output").textContent);
+      $("copyJava").textContent = "Copied ✓";
+      setTimeout(() => $("copyJava").textContent = "Copy", 900);
+    } catch { alert("Clipboard blocked."); }
+  };
+
+  $("downloadJava").onclick = () => {
+    const blob = new Blob([$("output").textContent], { type: "text/x-java-source;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "CANIds.java";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 250);
   };
 
   $("downloadTxt").onclick = () => {

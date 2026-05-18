@@ -120,7 +120,7 @@ Seven single-file browser tools, hosted right here. Nothing to install.
 <a class="tool-card" href="canids/">
   <div class="icon">🔌</div>
   <p class="name">CAN ID Planner</p>
-  <p class="desc">Add devices, catch ID collisions, presets for swerve and shooters, JSON export. Plan the bus before crimping anything.</p>
+  <p class="desc">Add devices, catch ID collisions, export a <code>CANIds.java</code> that pre-registers everything with <code>CANRegistry</code>. Presets for swerve and shooters.</p>
   <span class="tag plan">Planner</span>
 </a>
 

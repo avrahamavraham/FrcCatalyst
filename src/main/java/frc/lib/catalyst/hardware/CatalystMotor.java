@@ -79,6 +79,12 @@ public class CatalystMotor {
     private CatalystMotor(Builder builder) {
         this.canId = builder.canId;
         this.name = builder.name != null ? builder.name : "Motor" + canId;
+
+        // Claim our CAN id with the registry before constructing the TalonFX,
+        // so a duplicate id surfaces at robotInit with a clear message rather
+        // than waiting for Phoenix to fail later.
+        CANRegistry.register(this.name, canId, builder.canBus, "TalonFX");
+
         this.motor = new TalonFX(canId, builder.canBus);
         this.gearRatio = builder.gearRatio;
         this.positionConversionFactor = builder.positionConversionFactor;
@@ -144,6 +150,16 @@ public class CatalystMotor {
             config.ClosedLoopRamps.VoltageClosedLoopRampPeriod = builder.closedLoopRampRate;
         }
 
+        // Claim any attached CANcoder. Type label matches the feedback mode
+        // so the wiring summary names it correctly.
+        if (builder.fusedCancoderId >= 0) {
+            CANRegistry.register(this.name + "CANcoder", builder.fusedCancoderId, builder.canBus, "CANcoder (fused)");
+        } else if (builder.syncCancoderId >= 0) {
+            CANRegistry.register(this.name + "CANcoder", builder.syncCancoderId, builder.canBus, "CANcoder (sync)");
+        } else if (builder.remoteCancoderId >= 0) {
+            CANRegistry.register(this.name + "CANcoder", builder.remoteCancoderId, builder.canBus, "CANcoder (remote)");
+        }
+
         // Feedback configuration
         if (builder.fusedCancoderId >= 0) {
             // Fused CANcoder: combines internal encoder + CANcoder absolute position.
@@ -183,6 +199,7 @@ public class CatalystMotor {
         // Set up followers. Each one gets a fresh TalonFX, shared current/neutral
         // config, and a Follower control request pointing at the leader.
         for (FollowerSpec spec : builder.followerSpecs) {
+            CANRegistry.register(this.name + "Follower" + spec.canId(), spec.canId(), builder.canBus, "TalonFX (follower)");
             TalonFX follower = new TalonFX(spec.canId(), builder.canBus);
             TalonFXConfiguration followerConfig = new TalonFXConfiguration();
             followerConfig.MotorOutput.NeutralMode = builder.brakeMode

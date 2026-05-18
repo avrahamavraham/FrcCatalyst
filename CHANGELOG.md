@@ -5,6 +5,21 @@ All notable changes to FrcCatalyst are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.3.6-beta] — 2026-05-18
+
+### Added — `CANRegistry`
+- New `frc.lib.catalyst.hardware.CANRegistry` — a process-wide registry of every CAN device the robot has claimed.
+- Every `CatalystMotor` (primary, followers, and any attached CANcoder) **auto-registers** at builder time. Duplicate `(bus, id)` with a different name throws `CANConflictException` with both sides named. Identical re-registrations are idempotent.
+- Lookup, snapshot, and per-bus views: `CANRegistry.lookup(id, bus)`, `.all()`, `.byBus()`.
+- Plan is published to `/Catalyst/CAN/Devices` as a pipe-delimited string array for the Health Dashboard and other NT viewers.
+
+### Added — CAN ID Planner "Generate Catalyst Java"
+- New output mode in the [CAN ID Planner](https://tomas-1226.github.io/FrcCatalyst/tools/canids/) emits a complete `CANIds.java`:
+  - `public static final int` constants in `SCREAMING_SNAKE_CASE` per device
+  - Static block that pre-registers every planned device with `CANRegistry`
+  - Configurable Java package, copy-to-clipboard, download as `.java`
+- Calling `CANIds.init()` once from `Robot.robotInit()` surfaces wiring mistakes — missing device, wrong name, duplicate id — at boot instead of mid-match.
+
 ## [0.3.5.1-beta] — 2026-05-18
 
 ### Tools (hosted on GitHub Pages)

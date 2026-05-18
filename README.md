@@ -89,6 +89,11 @@ operatorController.b().onTrue(elevator.goTo("STOW"));
 
 ---
 
+## What's New in v0.3.6-beta
+
+- **`CANRegistry`** — every `CatalystMotor` (and any CANcoder it touches) now auto-claims its `(bus, id)` at construction. Duplicates throw with both sides named. Plan is published to `/Catalyst/CAN/Devices`.
+- **CAN ID Planner ships a "Generate Catalyst Java" button** — emit a `CANIds.java` with `SCREAMING_SNAKE_CASE` constants and a static block that pre-registers every planned device. Call `CANIds.init()` from `Robot.robotInit()` and a missing or mis-named device crashes the program at boot instead of failing silently mid-match.
+
 ## What's New in v0.3.5.1-beta
 
 - **Five hosted tools, no install required.** Open [tomas-1226.github.io/FrcCatalyst/tools/](https://tomas-1226.github.io/FrcCatalyst/tools/) and you get [🛠️ Catalyst Builder](https://tomas-1226.github.io/FrcCatalyst/tools/builder/), [🎚 Catalyst Tuner](https://tomas-1226.github.io/FrcCatalyst/tools/tuner/), [🩺 Health Dashboard](https://tomas-1226.github.io/FrcCatalyst/tools/health/), [📈 Motion Profile Visualizer](https://tomas-1226.github.io/FrcCatalyst/tools/motion/), and [⚡ MotorType Browser](https://tomas-1226.github.io/FrcCatalyst/tools/motors/) — all in one click.
