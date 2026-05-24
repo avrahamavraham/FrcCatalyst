@@ -106,6 +106,12 @@ public class RotationalMechanism extends CatalystMechanism {
             motorBuilder.withFollower(config.followerCanId, config.followerOppose);
         }
 
+        for (int i = 0; i < config.additionalFollowerCanIds.length; i++) {
+            motorBuilder.withFollower(
+                config.additionalFollowerCanIds[i], 
+                config.additionalFollowerOppose[i]);
+        }
+
         this.motor = motorBuilder.build();
 
         this.tunableGains = new TunableGains(
@@ -493,6 +499,8 @@ public class RotationalMechanism extends CatalystMechanism {
         final boolean inverted;
         final int followerCanId;
         final boolean followerOppose;
+        final int[] additionalFollowerCanIds;
+        final boolean[] additionalFollowerOppose;
         final MotorType motorType;
         final double gearRatio;
         final double length;
@@ -529,6 +537,8 @@ public class RotationalMechanism extends CatalystMechanism {
             this.inverted = b.inverted;
             this.followerCanId = b.followerCanId;
             this.followerOppose = b.followerOppose;
+            this.additionalFollowerCanIds = b.additionalFollowerCanIds;
+            this.additionalFollowerOppose = b.additionalFollowerOppose;
             this.motorType = b.motorType;
             this.gearRatio = b.gearRatio;
             this.length = b.length;
@@ -587,6 +597,8 @@ public class RotationalMechanism extends CatalystMechanism {
             private boolean inverted = false;
             private int followerCanId = -1;
             private boolean followerOppose = false;
+            private int[] additionalFollowerCanIds = new int[0];
+            private boolean[] additionalFollowerOppose = new boolean[0];
             private MotorType motorType = MotorType.KRAKEN_X60;
             private double gearRatio = 1.0;
             private double length = 0.5; // meters
@@ -622,6 +634,29 @@ public class RotationalMechanism extends CatalystMechanism {
             public Builder follower(int canId, boolean oppose) {
                 this.followerCanId = canId;
                 this.followerOppose = oppose;
+                return this;
+            }
+
+            
+            /**
+             * Add an additional follower motor beyond the primary follower.
+             * <p>This is the fix for the long-standing limitation where Catalyst only
+             * wired up one follower per mechanism. Call this method once per follower —
+             * for a four-Kraken elevator with two followers on each side of the leader,
+             * call this three times.
+             *
+             * @param canId  follower CAN ID
+             * @param oppose if true, the follower runs opposed to the leader (mirrored)
+             */
+            public Builder additionalFollower(int canId, boolean oppose) {
+                int[] ids = new int[this.additionalFollowerCanIds.length + 1];
+                boolean[] opp = new boolean[this.additionalFollowerOppose.length + 1];
+                System.arraycopy(this.additionalFollowerCanIds, 0, ids, 0, this.additionalFollowerCanIds.length);
+                System.arraycopy(this.additionalFollowerOppose, 0, opp, 0, this.additionalFollowerOppose.length);
+                ids[ids.length - 1] = canId;
+                opp[opp.length - 1] = oppose;
+                this.additionalFollowerCanIds = ids;
+                this.additionalFollowerOppose = opp;
                 return this;
             }
 

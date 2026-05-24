@@ -72,7 +72,7 @@ public class FlywheelMechanism extends CatalystMechanism {
         this.config = config;
 
         // Primary motor
-        this.primaryMotor = CatalystMotor.builder(config.primaryMotorCanId)
+        CatalystMotor.Builder primaryMotorBuilder = CatalystMotor.builder(config.primaryMotorCanId)
                 .name(config.name + "Primary")
                 .canBus(config.canBus)
                 .inverted(config.primaryInverted)
@@ -81,22 +81,43 @@ public class FlywheelMechanism extends CatalystMechanism {
                 .statorCurrentLimit(config.statorCurrentLimit)
                 .gearRatio(config.gearRatio)
                 .pid(config.kP, config.kI, config.kD)
-                .feedforward(config.kS, config.kV, config.kA)
-                .build();
+                .feedforward(config.kS, config.kV, config.kA);
+
+        if (config.primaryFollowerCanId > 0) {
+            primaryMotorBuilder.withFollower(config.primaryFollowerCanId, config.primaryFollowerOppose);
+        }
+
+        for (int i = 0; i < config.primaryAdditionalFollowerCanIds.length; i++) {
+            primaryMotorBuilder.withFollower(
+                config.primaryAdditionalFollowerCanIds[i], 
+                config.primaryAdditionalFollowerOppose[i]);
+        }
+
+        primaryMotor = primaryMotorBuilder.build();
 
         // Secondary motor (independent, not a follower)
         if (config.secondaryMotorCanId >= 0) {
-            this.secondaryMotor = CatalystMotor.builder(config.secondaryMotorCanId)
-                    .name(config.name + "Secondary")
+            CatalystMotor.Builder secondaryMotorBuilder = CatalystMotor.builder(config.secondaryMotorCanId)
+                    .name(config.name + "secondary")
                     .canBus(config.canBus)
                     .inverted(config.secondaryInverted)
-                    .brakeMode(false)
+                    .brakeMode(false) // flywheels usually coast
                     .currentLimit(config.currentLimit)
                     .statorCurrentLimit(config.statorCurrentLimit)
                     .gearRatio(config.gearRatio)
                     .pid(config.kP, config.kI, config.kD)
-                    .feedforward(config.kS, config.kV, config.kA)
-                    .build();
+                    .feedforward(config.kS, config.kV, config.kA);
+
+            if (config.secondaryFollowerCanId > 0) {
+                secondaryMotorBuilder.withFollower(config.secondaryFollowerCanId, config.secondaryFollowerOppose);
+            }
+
+            for (int i = 0; i < config.secondaryAdditionalFollowerCanIds.length; i++) {
+                secondaryMotorBuilder.withFollower(
+                    config.secondaryAdditionalFollowerCanIds[i], 
+                    config.secondaryAdditionalFollowerOppose[i]);
+            }
+            this.secondaryMotor = secondaryMotorBuilder.build();
         } else {
             this.secondaryMotor = null;
         }
@@ -321,7 +342,15 @@ public class FlywheelMechanism extends CatalystMechanism {
     public static class Config {
         final String name;
         final int primaryMotorCanId;
+        final int primaryFollowerCanId;
+        final boolean primaryFollowerOppose;
+        final int[] primaryAdditionalFollowerCanIds;
+        final boolean[] primaryAdditionalFollowerOppose;
         final int secondaryMotorCanId;
+        final int secondaryFollowerCanId;
+        final boolean secondaryFollowerOppose;
+        final int[] secondaryAdditionalFollowerCanIds;
+        final boolean[] secondaryAdditionalFollowerOppose;
         final String canBus;
         final boolean primaryInverted;
         final boolean secondaryInverted;
@@ -336,8 +365,16 @@ public class FlywheelMechanism extends CatalystMechanism {
 
         private Config(Builder b) {
             this.name = b.name;
-            this.primaryMotorCanId = b.primaryMotorCanId;
+            this.primaryMotorCanId = b.primaryMotorCanId;            
+            this.primaryFollowerCanId = b.primaryFollowerCanId;
+            this.primaryFollowerOppose = b.primaryFollowerOppose;
+            this.primaryAdditionalFollowerCanIds = b.primaryAdditionalFollowerCanIds;
+            this.primaryAdditionalFollowerOppose = b.primaryAdditionalFollowerOppose;
             this.secondaryMotorCanId = b.secondaryMotorCanId;
+            this.secondaryFollowerCanId = b.secondaryFollowerCanId;
+            this.secondaryFollowerOppose = b.secondaryFollowerOppose;
+            this.secondaryAdditionalFollowerCanIds = b.secondaryAdditionalFollowerCanIds;
+            this.secondaryAdditionalFollowerOppose = b.secondaryAdditionalFollowerOppose;
             this.canBus = b.canBus;
             this.primaryInverted = b.primaryInverted;
             this.secondaryInverted = b.secondaryInverted;
@@ -358,7 +395,15 @@ public class FlywheelMechanism extends CatalystMechanism {
         public static class Builder {
             private String name = "FlywheelMechanism";
             private int primaryMotorCanId = 0;
+            public boolean primaryFollowerOppose;
+            public int primaryFollowerCanId;
+            public boolean[] primaryAdditionalFollowerOppose;
+            public int[] primaryAdditionalFollowerCanIds;
             private int secondaryMotorCanId = -1;
+            public boolean[] secondaryAdditionalFollowerOppose;
+            public int[] secondaryAdditionalFollowerCanIds;
+            public boolean secondaryFollowerOppose;
+            public int secondaryFollowerCanId;
             private String canBus = "";
             private boolean primaryInverted = false;
             private boolean secondaryInverted = false;
@@ -373,6 +418,65 @@ public class FlywheelMechanism extends CatalystMechanism {
 
             public Builder name(String name) { this.name = name; return this; }
             public Builder motor(int canId) { this.primaryMotorCanId = canId; return this; }
+            
+            public Builder primaryFollower(int canId, boolean oppose) {
+                this.primaryFollowerCanId = canId;
+                this.primaryFollowerOppose = oppose;
+                return this;
+            }
+
+            
+            /**
+             * Add an additional follower motor beyond the primary follower.
+             * <p>This is the fix for the long-standing limitation where Catalyst only
+             * wired up one follower per mechanism. Call this method once per follower —
+             * for a four-Kraken elevator with two followers on each side of the leader,
+             * call this three times.
+             *
+             * @param canId  follower CAN ID
+             * @param oppose if true, the follower runs opposed to the leader (mirrored)
+             */
+            public Builder primaryAdditionalFollower(int canId, boolean oppose) {
+                int[] ids = new int[this.primaryAdditionalFollowerCanIds.length + 1];
+                boolean[] opp = new boolean[this.primaryAdditionalFollowerOppose.length + 1];
+                System.arraycopy(this.primaryAdditionalFollowerCanIds, 0, ids, 0, this.primaryAdditionalFollowerCanIds.length);
+                System.arraycopy(this.primaryAdditionalFollowerOppose, 0, opp, 0, this.primaryAdditionalFollowerOppose.length);
+                ids[ids.length - 1] = canId;
+                opp[opp.length - 1] = oppose;
+                this.primaryAdditionalFollowerCanIds = ids;
+                this.primaryAdditionalFollowerOppose = opp;
+                return this;
+            }
+
+            public Builder secondaryFollower(int canId, boolean oppose) {
+                this.secondaryFollowerCanId = canId;
+                this.secondaryFollowerOppose = oppose;
+                return this;
+            }
+
+            
+            /**
+             * Add an additional follower motor beyond the primary follower.
+             * <p>This is the fix for the long-standing limitation where Catalyst only
+             * wired up one follower per mechanism. Call this method once per follower —
+             * for a four-Kraken elevator with two followers on each side of the leader,
+             * call this three times.
+             *
+             * @param canId  follower CAN ID
+             * @param oppose if true, the follower runs opposed to the leader (mirrored)
+             */
+            public Builder secondaryAdditionalFollower(int canId, boolean oppose) {
+                int[] ids = new int[this.secondaryAdditionalFollowerCanIds.length + 1];
+                boolean[] opp = new boolean[this.secondaryAdditionalFollowerOppose.length + 1];
+                System.arraycopy(this.secondaryAdditionalFollowerCanIds, 0, ids, 0, this.secondaryAdditionalFollowerCanIds.length);
+                System.arraycopy(this.secondaryAdditionalFollowerOppose, 0, opp, 0, this.secondaryAdditionalFollowerOppose.length);
+                ids[ids.length - 1] = canId;
+                opp[opp.length - 1] = oppose;
+                this.secondaryAdditionalFollowerCanIds = ids;
+                this.secondaryAdditionalFollowerOppose = opp;
+                return this;
+            }
+
 
             /** Add a second motor for dual-flywheel setups (independent, NOT a follower). */
             public Builder secondMotor(int canId) { this.secondaryMotorCanId = canId; return this; }
