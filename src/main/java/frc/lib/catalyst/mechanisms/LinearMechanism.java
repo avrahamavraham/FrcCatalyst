@@ -21,6 +21,7 @@ import frc.lib.catalyst.io.LinearMechanismInputs;
 import frc.lib.catalyst.util.FeedforwardGains;
 import frc.lib.catalyst.util.HealthCheck;
 import frc.lib.catalyst.util.HealthMonitor;
+import frc.lib.catalyst.util.PositionEnum;
 import frc.lib.catalyst.util.TunableGains;
 
 import java.util.HashMap;
@@ -322,6 +323,15 @@ public class LinearMechanism extends CatalystMechanism {
                             + ". Available: " + config.namedPositions.keySet());
         }
         return goTo(target).withName(name + ".GoTo(" + positionName + ")");
+    }
+
+    /**
+     * Type-safe variant of {@link #goTo(String)} for enums implementing
+     * {@link PositionEnum} — no name strings to misspell.
+     */
+    public Command goTo(PositionEnum pos) {
+        return goTo(pos.getTarget())
+                .withName(name + ".GoTo(" + ((Enum<?>) pos).name() + ")");
     }
 
     /**
@@ -760,6 +770,21 @@ public class LinearMechanism extends CatalystMechanism {
             /** Add a named position preset in meters. */
             public Builder position(String name, double meters) {
                 this.namedPositions.put(name, meters);
+                return this;
+            }
+
+            /**
+             * Bulk-register every constant of a {@link PositionEnum} as a
+             * named position. Each constant's {@code name()} becomes the
+             * position label and {@code getTarget()} the value in meters.
+             *
+             * @param <E> enum type implementing {@link PositionEnum}
+             * @param enumClass class object for the enum (e.g. {@code MyPos.class})
+             */
+            public <E extends Enum<E> & PositionEnum> Builder addPositionsFromEnum(Class<E> enumClass) {
+                for (E e : enumClass.getEnumConstants()) {
+                    this.namedPositions.put(e.name(), e.getTarget());
+                }
                 return this;
             }
 
