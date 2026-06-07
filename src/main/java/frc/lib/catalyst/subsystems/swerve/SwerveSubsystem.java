@@ -9,6 +9,7 @@ import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.config.PIDConstants;
 import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.controllers.PPHolonomicDriveController;
+import com.pathplanner.lib.path.PathConstraints;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.geometry.Pose2d;
@@ -537,6 +538,55 @@ public class SwerveSubsystem extends SubsystemBase {
                     && Math.abs(normalizeAngle(
                     current.getRotation().getDegrees() - target.getRotation().getDegrees())) < 3.0;
         }).withName("Swerve.DriveToPose");
+    }
+
+    /**
+     * Pathfind to a pose and then precision-align with PID.
+     *
+     * <p>Uses PathPlanner's {@code AutoBuilder.pathfindToPose} for the
+     * long-range leg, then hands off to {@link #driveToPose(Supplier, double, double)}
+     * once close. AutoBuilder must be configured (via the
+     * {@link PathPlannerConfig} constructor) for the pathfinding leg to
+     * work — if it isn't, this falls back to PID-only alignment and
+     * reports the error to the driver station.
+     *
+     * @param targetPose      the target field pose
+     * @param translationKP   proportional gain for the precision-align leg
+     * @param toleranceMeters position tolerance for "arrived"
+     * @param constraints     pathfinding constraints (max vel / accel, etc.)
+     */
+    public Command pathfindToPose(Supplier<Pose2d> targetPose, double translationKP,
+                                  double toleranceMeters, PathConstraints constraints) {
+        try {
+            return AutoBuilder.pathfindToPose(targetPose.get(), constraints)
+                    .andThen(driveToPose(targetPose, translationKP, toleranceMeters))
+                    .withName("Swerve.PathfindToPose");
+        } catch (Exception e) {
+            DriverStation.reportError(
+                    "AutoBuilder not configured for pathfindToPose — falling back to PID align: "
+                            + e.getMessage(), true);
+            return driveToPose(targetPose, translationKP, toleranceMeters);
+        }
+    }
+
+    /**
+     * Pathfind to a pose with unlimited constraints (use only when you
+     * trust your own velocity / accel limits elsewhere).
+     */
+    public Command pathfindToPose(Supplier<Pose2d> targetPose, double translationKP,
+                                  double toleranceMeters) {
+        return pathfindToPose(targetPose, translationKP, toleranceMeters,
+                PathConstraints.unlimitedConstraints(12.0));
+    }
+
+    /** Pathfind-and-align with sensible defaults (kP=4.0, tolerance=0.02 m). */
+    public Command pathfindToPose(Supplier<Pose2d> targetPose) {
+        return pathfindToPose(targetPose, 4.0, 0.02);
+    }
+
+    /** Pathfind-and-align with sensible defaults plus custom constraints. */
+    public Command pathfindToPose(Supplier<Pose2d> targetPose, PathConstraints constraints) {
+        return pathfindToPose(targetPose, 4.0, 0.02, constraints);
     }
 
     /** X-brake command (lock wheels). */
