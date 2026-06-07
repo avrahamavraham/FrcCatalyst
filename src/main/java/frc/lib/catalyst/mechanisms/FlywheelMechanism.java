@@ -15,6 +15,7 @@ import java.util.List;
 import frc.lib.catalyst.io.FlywheelMechanismInputs;
 import frc.lib.catalyst.util.HealthCheck;
 import frc.lib.catalyst.util.HealthMonitor;
+import frc.lib.catalyst.util.RumbleEvents;
 import frc.lib.catalyst.util.TunableGains;
 
 /**
@@ -328,6 +329,13 @@ public class FlywheelMechanism extends CatalystMechanism {
     @Override
     protected CatalystMotor primaryMotorForSysId() {
         return primaryMotor;
+    }
+
+    /** Rumble when the flywheel reaches its target velocity (ready to shoot). */
+    @Override
+    public void bindRumble(RumbleEvents events,
+                           RumbleEvents.Pattern pattern, RumbleEvents.Channel channel) {
+        bindRumble(events, atSpeedTrigger(), pattern, channel);
     }
     public CatalystMotor getSecondaryMotor() { return secondaryMotor; }
 

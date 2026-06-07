@@ -105,7 +105,70 @@ events.fire(Pattern.TRIPLE_TAP, Channel.BOTH);  // sound the alarm now
 events.clear();                                  // stop every active rumble
 ```
 
+### Per-mechanism shortcut (v0.4.1+)
+
+Most mechanisms expose a `bindRumble(events, pattern, channel)`
+short form that pre-picks the "obvious" event for you, so you don't
+have to remember which trigger to bind:
+
+```java
+claw.bindRumble(events, Pattern.SHORT,      Channel.BOTH);    // on hasPiece
+intake.bindRumble(events, Pattern.SHORT,    Channel.BOTH);    // on hasPiece
+shooter.bindRumble(events, Pattern.DOUBLE_TAP, Channel.DRIVER); // on atSpeed
+wrist.bindRumble(events, Pattern.SHORT,     Channel.OPERATOR); // on atSetpoint
+```
+
+The four-arg form is still there when you want a specific trigger:
+
+```java
+elevator.bindRumble(events, elevator.atPositionTrigger(1.1, 0.01),
+                    Pattern.SHORT, Channel.OPERATOR);
+```
+
 ---
+
+## GhostReplay (v0.4.1+) — record + replay teleop poses
+
+Record a lead driver's path, then replay it as a faint ghost a new
+driver can practice against on the field view in AdvantageScope.
+
+```java
+GhostReplay ghost = new GhostReplay(swerve::getPose);
+
+// One-time bindings in RobotContainer:
+operator.start().onTrue(ghost.startRecording("lead-driver-a-side"));
+operator.back() .onTrue(ghost.stopRecording());
+operator.x()    .onTrue(ghost.startReplay("lead-driver-a-side"));
+operator.b()    .onTrue(ghost.stopReplay());
+
+// In Robot.robotPeriodic():
+@Override public void robotPeriodic() {
+    CommandScheduler.getInstance().run();
+    ghost.update();   // captures during record, advances during replay
+}
+```
+
+Saved files live under the deploy directory at
+`ghosts/<name>.csv`. Commit them to the robot project and they ride
+along with code on every deploy.
+
+The ghost pose is published to `/Catalyst/Ghost/Pose` — drag that into
+AdvantageScope's field view to see the ghost overlaid on the live
+robot. Drivers can chase the ghost during practice and see where
+they're losing time.
+
+### File format
+
+Plain CSV — `t,x,y,thetaDegrees` per line, leading `#` lines are
+comments. Easy to inspect and even hand-edit if you want to splice
+two recordings together.
+
+```
+# Catalyst ghost replay — t,x,y,thetaDeg
+0.000000,1.5000,5.5000,180.000
+0.020000,1.5040,5.4998,180.012
+...
+```
 
 ## Pattern: integrate the two
 

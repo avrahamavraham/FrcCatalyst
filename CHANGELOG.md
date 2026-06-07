@@ -5,6 +5,16 @@ All notable changes to FrcCatalyst are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.1-beta] — 2026-06-07
+
+### Added — driver experience
+- **`GhostReplay`** — record the live robot pose during teleop, replay it later as a ghost pose for a new driver to chase. Stores trajectories as plain CSV under the deploy directory (`ghosts/<name>.csv`), so a recording follows the codebase across deploys. Publishes the ghost pose to `/Catalyst/Ghost/Pose` for AdvantageScope field overlay.
+- **Per-mechanism `bindRumble(events, pattern, channel)`** — one-line ergonomic path that pre-picks each mechanism's "obvious" event:
+  - `ClawMechanism` + `RollerMechanism` → `hasPieceTrigger()`
+  - `FlywheelMechanism` → `atSpeedTrigger()`
+  - `DifferentialWristMechanism` → `atSetpointTrigger()`
+  - The four-arg form `bindRumble(events, trigger, pattern, channel)` is still there for everything else.
+
 ## [0.4.0-beta] — 2026-06-07
 
 ### Added — driver experience

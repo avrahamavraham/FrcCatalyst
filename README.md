@@ -89,6 +89,11 @@ operatorController.b().onTrue(elevator.goTo("STOW"));
 
 ---
 
+## What's New in v0.4.1-beta
+
+- **`GhostReplay`** — record a teleop drive, replay it later as a ghost pose for driver practice. CSV files under the deploy directory, ghost pose published to NT for AdvantageScope field overlay.
+- **Per-mechanism `bindRumble(events, pattern, channel)`** shortcut — picks the mechanism's natural event (Claw/Roller → has-piece, Flywheel → at-speed, DifferentialWrist → at-setpoint). One-liner instead of having to remember which trigger to bind.
+
 ## What's New in v0.4.0-beta
 
 - **Driver feel** — `RumbleEvents` (bind any Trigger to controller rumble, five built-in patterns) and `DriverProfile` (deadband, response curve, max-speed cap, slow mode — swap drivers by swapping profiles).

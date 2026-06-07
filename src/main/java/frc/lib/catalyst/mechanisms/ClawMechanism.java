@@ -9,6 +9,7 @@ import frc.lib.catalyst.hardware.CatalystMotor.FollowerSpec;
 import frc.lib.catalyst.io.ClawMechanismInputs;
 import frc.lib.catalyst.util.HealthCheck;
 import frc.lib.catalyst.util.HealthMonitor;
+import frc.lib.catalyst.util.RumbleEvents;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -296,6 +297,13 @@ public class ClawMechanism extends CatalystMechanism {
     @Override
     protected CatalystMotor primaryMotorForSysId() {
         return motor;
+    }
+
+    /** Rumble on each piece pickup. */
+    @Override
+    public void bindRumble(RumbleEvents events,
+                           RumbleEvents.Pattern pattern, RumbleEvents.Channel channel) {
+        bindRumble(events, hasPieceTrigger(), pattern, channel);
     }
 
     // ===========================================

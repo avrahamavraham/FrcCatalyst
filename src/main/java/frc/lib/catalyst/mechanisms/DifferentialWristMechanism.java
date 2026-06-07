@@ -13,6 +13,7 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.lib.catalyst.hardware.CatalystMotor;
 import frc.lib.catalyst.io.DifferentialWristMechanismInputs;
 import frc.lib.catalyst.util.HealthMonitor;
+import frc.lib.catalyst.util.RumbleEvents;
 import frc.lib.catalyst.util.TunableGains;
 import frc.lib.catalyst.util.TunableNumber;
 
@@ -348,6 +349,13 @@ public class DifferentialWristMechanism extends CatalystMechanism {
 
     public CatalystMotor getLeftMotor() { return leftMotor; }
     public CatalystMotor getRightMotor() { return rightMotor; }
+
+    /** Rumble when both axes settle on their setpoints. */
+    @Override
+    public void bindRumble(RumbleEvents events,
+                           RumbleEvents.Pattern pattern, RumbleEvents.Channel channel) {
+        bindRumble(events, atSetpointTrigger(), pattern, channel);
+    }
 
     // ===========================================
     //                  CONFIG

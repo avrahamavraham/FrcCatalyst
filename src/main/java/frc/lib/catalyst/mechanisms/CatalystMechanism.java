@@ -4,10 +4,12 @@ import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import edu.wpi.first.wpilibj2.command.button.Trigger;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction;
 import frc.lib.catalyst.hardware.CatalystMotor;
 import frc.lib.catalyst.logging.CatalystInputs;
 import frc.lib.catalyst.logging.CatalystLog;
+import frc.lib.catalyst.util.RumbleEvents;
 
 /**
  * Base class for all Catalyst mechanisms. Provides automatic telemetry,
@@ -125,6 +127,36 @@ public abstract class CatalystMechanism extends SubsystemBase {
      */
     protected CatalystMotor primaryMotorForSysId() {
         return null;
+    }
+
+    /**
+     * Bind {@code trigger} to a {@link RumbleEvents} pattern. Helper so
+     * teams don't have to import the {@link RumbleEvents.Channel} /
+     * {@link RumbleEvents.Pattern} enums in every binding file.
+     *
+     * <p>Per-mechanism subclasses override the no-trigger short form
+     * {@link #bindRumble(RumbleEvents, RumbleEvents.Pattern, RumbleEvents.Channel)}
+     * to pre-select the "obvious" trigger (e.g. {@code hasPieceTrigger()}
+     * for grippers, {@code atSpeedTrigger()} for flywheels).
+     */
+    public void bindRumble(RumbleEvents events, Trigger trigger,
+                           RumbleEvents.Pattern pattern, RumbleEvents.Channel channel) {
+        events.onTrigger(trigger, pattern, channel);
+    }
+
+    /**
+     * Bind the mechanism's "obvious" event to a rumble pattern. Default
+     * implementation throws — subclasses with a natural event override.
+     *
+     * <p>For mechanisms that already provide it ({@link ClawMechanism},
+     * {@link RollerMechanism}, {@link FlywheelMechanism},
+     * {@link DifferentialWristMechanism}, {@link LinearMechanism},
+     * {@link RotationalMechanism}), this is the one-line ergonomic path.
+     */
+    public void bindRumble(RumbleEvents events,
+                           RumbleEvents.Pattern pattern, RumbleEvents.Channel channel) {
+        throw new UnsupportedOperationException(
+                name + " has no default rumble event — use the four-arg overload with an explicit Trigger.");
     }
 
     /** Update telemetry. Called from periodic(). Subclasses should override. */
