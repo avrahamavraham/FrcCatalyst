@@ -87,7 +87,7 @@ public class RotationalMechanism extends CatalystMechanism {
                 .name(config.name + "Motor")
                 .canBus(config.canBus)
                 .inverted(config.inverted)
-                .brakeMode(true)
+                .brakeMode(config.brakeMode)
                 .currentLimit(config.currentLimit)
                 .statorCurrentLimit(config.statorCurrentLimit)
                 .gearRatio(config.gearRatio)
@@ -504,6 +504,7 @@ public class RotationalMechanism extends CatalystMechanism {
         final int motorCanId;
         final String canBus;
         final boolean inverted;
+        final boolean brakeMode;
         final List<FollowerSpec> followers;
         final MotorType motorType;
         final double gearRatio;
@@ -539,6 +540,7 @@ public class RotationalMechanism extends CatalystMechanism {
             this.motorCanId = b.motorCanId;
             this.canBus = b.canBus;
             this.inverted = b.inverted;
+            this.brakeMode = b.brakeMode;
             this.followers = List.copyOf(b.followers);
             this.motorType = b.motorType;
             this.gearRatio = b.gearRatio;
@@ -596,6 +598,10 @@ public class RotationalMechanism extends CatalystMechanism {
             private int motorCanId = 0;
             private String canBus = "";
             private boolean inverted = false;
+            // Brake mode default true — anything gravity-loaded (arm, wrist,
+            // turret) needs brake to hold position on disable. Override to
+            // false for low-friction mechanisms that benefit from coast.
+            private boolean brakeMode = true;
             private final List<FollowerSpec> followers = new ArrayList<>();
             private MotorType motorType = MotorType.KRAKEN_X60;
             private double gearRatio = 1.0;
@@ -628,6 +634,9 @@ public class RotationalMechanism extends CatalystMechanism {
             public Builder motor(int canId) { this.motorCanId = canId; return this; }
             public Builder canBus(String canBus) { this.canBus = canBus; return this; }
             public Builder inverted(boolean inverted) { this.inverted = inverted; return this; }
+
+            /** Brake mode on disable (default {@code true}). Pass {@code false} for coast — anything gravity-loaded will drift. */
+            public Builder brakeMode(boolean brakeMode) { this.brakeMode = brakeMode; return this; }
 
             /**
              * Attach a follower motor that mirrors the primary. Additive:
