@@ -74,6 +74,40 @@ driver.rightBumper().whileTrue(drive.pointAtTarget(
 {: .tip }
 See the [Advanced Features](../advanced/) section for detailed documentation on skew correction, slew rate limiting, snap-to-angle, and auto-align.
 
+### pathfindToPose (v0.3.6.1+)
+
+Pathfind to a pose with PathPlanner's `AutoBuilder.pathfindToPose`, then
+hand off to the existing precision-align PID for the last metre.
+
+```java
+swerve.pathfindToPose(() -> ScoringPoses.RED_L2);                 // defaults: kP=4.0, tolerance=2 cm
+swerve.pathfindToPose(() -> target, 5.0, 0.015);                  // tighter tolerance
+swerve.pathfindToPose(() -> target, new PathConstraints(3, 2, …)); // your own constraints
+```
+
+If `AutoBuilder` isn't configured the command falls back to PID-only
+align and prints a driver-station error explaining why — no crash.
+
+### SwerveSetpointGenerator (v0.4.0+)
+
+Light chassis-aware accel/skid clamp. Wraps a `ChassisSpeeds` and
+returns one limited by max wheel speed, max angular rate, and a
+per-second delta-v cap.
+
+```java
+SwerveSetpointGenerator gen = new SwerveSetpointGenerator(
+    drive.getMaxSpeedMPS(), drive.getMaxAngularRate(), 8.0); // 8 m/s² accel cap
+
+ChassisSpeeds limited = gen.generate(requestedSpeeds);
+drivetrain.setControl(req.withVelocityX(limited.vxMetersPerSecond)
+                        .withVelocityY(limited.vyMetersPerSecond)
+                        .withRotationalRate(limited.omegaRadiansPerSecond));
+```
+
+Catches the most common driver-induced skid (jerking the stick from
+full-forward to full-right) without doing a full per-wheel feasibility
+solve. Cheap.
+
 ## VisionSubsystem
 
 Multi-camera pose estimation with Kalman filter integration. Supports both Limelight (MegaTag2) and PhotonVision cameras simultaneously.
@@ -109,6 +143,32 @@ VisionSubsystem vision = new VisionSubsystem(
         .build()
 );
 ```
+
+### LimelightTriggers (v0.4.0+)
+
+Wrap a Limelight's NetworkTables keys as WPILib `Trigger`s. Point at
+the table name, bind, done.
+
+```java
+LimelightTriggers front = new LimelightTriggers("limelight-front");
+
+front.hasTarget().onTrue(leds.greenCommand());
+front.tagInView(7).whileTrue(swerve.pathfindToPose(() -> SCORE_7));
+front.detectorClass("note").onTrue(intake.intakeCommand());
+front.horizontalErrorBelow(2.0).onTrue(rumble.driver(Pattern.DOUBLE_TAP));
+front.targetWithinArea(2.0).onTrue(climber.armCommand());
+```
+
+| Trigger | Backed by |
+|---|---|
+| `hasTarget()`                   | `tv > 0.5` |
+| `tagInView(int)`                | `tv > 0.5 && tid == id` |
+| `detectorClass(String)`         | `tv > 0.5 && tclass == name` |
+| `horizontalErrorBelow(double)`  | `\|tx\| <= degrees` |
+| `targetWithinArea(double)`      | `ta >= percent` |
+
+Plus diagnostic readers: `tx()`, `ty()`, `ta()`, `tid()`,
+`latencyMs()` for direct polling when you don't want a trigger.
 
 ## LEDSubsystem
 

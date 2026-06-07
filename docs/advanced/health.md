@@ -182,6 +182,18 @@ five seconds ago.
 The serialization format is intentionally simple — `timestamp|kind|severity|subsystem|id|detail`
 per entry — so a small script can ingest it for post-match triage.
 
+### Timeline view in the dashboard (v0.4.0+)
+
+The [Health Dashboard](../tools/health/) renders this history as a
+swim-lane timeline below the subsystem cards. One lane per
+`subsystem/id`, severity-colored dots (filled = `FIRED`, hollow =
+`CLEARED`), hover for the live `detail` string and "X.X s ago" since
+the event.
+
+Useful for spotting patterns — a stator spike that fires + clears once
+a match is a non-event; one that ping-pongs every 3 seconds is a real
+problem. The timeline makes that obvious at a glance.
+
 ## Severity rules of thumb
 
 - **ERROR** → something is broken or about to be broken. The robot should

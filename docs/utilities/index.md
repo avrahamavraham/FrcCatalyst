@@ -342,6 +342,35 @@ MotorType custom = new MotorType(
 > gravity feedforward in 0.3.2 or earlier and hand-tuned `kG`, re-check
 > the value after upgrading.
 
+## RobotState
+
+A singleton view of "what's the robot doing right now?" — alliance,
+match time, mode, battery voltage, time since enable. Cached for 5 ms
+so re-reading from multiple subsystems is free, and exposes ready-to-
+bind triggers for the common end-game patterns.
+
+```java
+if (RobotState.isAutonomous()) { ... }
+if (RobotState.isRed())        { mirrorPoseForRed(); }
+if (RobotState.matchTimeRemaining() < 10) { climber.runDefault(); }
+
+// As triggers — best for command bindings:
+RobotState.lateMatch(20).onTrue(climber.deployCommand());
+RobotState.lowBattery(11.0).onTrue(RobotSafety.tripCommand());
+RobotState.disabled().onTrue(LedSubsystem.idlePattern());
+```
+
+| Field | Method |
+|---|---|
+| Mode      | `isAutonomous()`, `isTeleop()`, `isTest()`, `isDisabled()`, `isEnabled()`, `isEStopped()` |
+| Alliance  | `alliance()`, `allianceOpt()`, `isRed()`, `isBlue()`, `stationLocation()` |
+| Match     | `matchTimeRemaining()`, `timeSinceEnable()` |
+| Power     | `batteryVoltage()` |
+| Triggers  | `autonomous()`, `teleop()`, `disabled()`, `enabled()`, `lateMatch(s)`, `lowBattery(v)` |
+
+Refresh is lazy. To force a re-read in a test, call
+`RobotState.refresh()`.
+
 ## CANRegistry
 
 A process-wide registry of every CAN device the robot has claimed. Every

@@ -168,11 +168,23 @@ Motion Magic, gravity FF, sim, telemetry, command factories, health monitoring, 
 | `RobotSafety` | Optional watchdog with `trippedTrigger()` for one-line bindings |
 | `MotorType` | NEO / Vortex / 550 / Minion / Kraken (including X44 and corrected FOC torques), plus a public constructor for custom motors |
 
+### Driver & robot state (v0.4.0+)
+
+| | |
+|---|---|
+| `DriverProfile` | Per-driver deadband + curve + speed cap + slow mode |
+| `RumbleEvents` | Bind any Trigger to a controller rumble pattern |
+| `RobotState` | One singleton wrapping alliance / match time / mode / battery + ready-to-bind triggers |
+| `LimelightTriggers` | `Trigger.tagInView(7)`, `.detectorClass("note")`, `.horizontalErrorBelow(2.0)` |
+| SysId on every motor | `mechanism.sysIdQuasistatic(Direction)` / `.sysIdDynamic(Direction)` work out of the box |
+| `SwerveSetpointGenerator` | Chassis-aware accel + skid clamp for the common driver-skid case |
+
 ### Every mechanism gets
 
 Builder config, Motion Magic or ProfiledPID, named position presets (`goTo("STOW")`),
 WPILib sim, NetworkTables telemetry, temperature cutoff, limit-switch auto-zero,
-HealthCheck-based fault monitoring, multi-follower support, pre-built commands.
+HealthCheck-based fault monitoring, multi-follower support, pre-built commands,
+**SysId quasistatic / dynamic routines (v0.4.0+)**.
 
 ---
 
@@ -183,9 +195,10 @@ HealthCheck-based fault monitoring, multi-follower support, pre-built commands.
 | [Installation](getting-started/installation) | Add Catalyst to your `build.gradle` |
 | [Quick Start](getting-started/quickstart) | First mechanism in five minutes |
 | [Mechanisms](mechanisms/) | All eight mechanism types |
-| [Subsystems](subsystems/) | Swerve, Vision, LEDs |
-| [Utilities](utilities/) | Health Kit, RobotSafety, MotorType, feedforward, profiles, alerts |
-| [Advanced](advanced/) | State-space, signal processing, live tuning, health monitoring |
+| [Subsystems](subsystems/) | Swerve, Vision, LEDs, LimelightTriggers, SwerveSetpointGenerator |
+| [Driver](driver/) | DriverProfile, RumbleEvents, controller feel |
+| [Utilities](utilities/) | Health Kit, RobotSafety, RobotState, MotorType, CANRegistry, feedforward, profiles |
+| [Advanced](advanced/) | State-space, signal processing, live tuning, health monitoring, SysId |
 | [Tools](tools/) | The seven browser tools |
 | [Examples](examples/) | Whole-robot examples |
 | [Testing](testing/) | Unit-testing Catalyst-based code |
