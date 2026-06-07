@@ -18,8 +18,14 @@ import com.ctre.phoenix6.controls.VelocityVoltage;
 import com.ctre.phoenix6.controls.VoltageOut;
 import com.ctre.phoenix6.hardware.CANcoder;
 import com.ctre.phoenix6.hardware.TalonFX;
+import com.ctre.phoenix6.SignalLogger;
 import com.ctre.phoenix6.signals.GravityTypeValue;
 import com.ctre.phoenix6.signals.InvertedValue;
+import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
+import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction;
+import static edu.wpi.first.units.Units.Volts;
 import com.ctre.phoenix6.signals.NeutralModeValue;
 import edu.wpi.first.networktables.DoublePublisher;
 import edu.wpi.first.networktables.NetworkTable;
@@ -447,6 +453,51 @@ public class CatalystMotor {
         if (temp <= warningTemp) return 1.0;
         if (temp >= cutoffTemp) return 0.0;
         return 1.0 - (temp - warningTemp) / (cutoffTemp - warningTemp);
+    }
+
+    // --- SysId ---
+    //
+    // Phoenix 6 already logs every TalonFX signal through SignalLogger when
+    // it's started. We hand WPILib a SysIdRoutine that drives the master
+    // motor with VoltageOut and let SignalLogger take care of the data
+    // capture — no per-signal logging boilerplate in the mechanism code.
+    //
+    // Teams need to call SignalLogger.start() once in Robot.robotInit()
+    // for the WPILib SysId tooling to find the data.
+
+    /** Build a {@link SysIdRoutine} for this motor with the given subsystem requirement. */
+    public SysIdRoutine sysIdRoutine(SubsystemBase requirement) {
+        return sysIdRoutine(requirement, defaultSysIdConfig());
+    }
+
+    /** Build a {@link SysIdRoutine} for this motor with a custom config. */
+    public SysIdRoutine sysIdRoutine(SubsystemBase requirement, SysIdRoutine.Config config) {
+        return new SysIdRoutine(
+                config,
+                new SysIdRoutine.Mechanism(
+                        (voltage) -> setVoltage(voltage.in(Volts)),
+                        null,            // Phoenix SignalLogger captures signals; no per-signal callback needed.
+                        requirement,
+                        name));
+    }
+
+    /** Default routine: 1 V/s ramp, 4 V step, 10 s timeout. */
+    public static SysIdRoutine.Config defaultSysIdConfig() {
+        return new SysIdRoutine.Config(
+                null,            // 1 V/s default
+                Volts.of(4),     // dynamic step voltage
+                null,            // 10 s default timeout
+                (state) -> SignalLogger.writeString("SysIdState", state.toString()));
+    }
+
+    /** Quasistatic SysId command — slow ramp, characterises kS / kV. */
+    public Command sysIdQuasistatic(SubsystemBase requirement, Direction dir) {
+        return sysIdRoutine(requirement).quasistatic(dir);
+    }
+
+    /** Dynamic SysId command — step input, characterises kA. */
+    public Command sysIdDynamic(SubsystemBase requirement, Direction dir) {
+        return sysIdRoutine(requirement).dynamic(dir);
     }
 
     // --- Builder ---

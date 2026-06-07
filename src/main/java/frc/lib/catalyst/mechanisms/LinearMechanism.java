@@ -547,6 +547,11 @@ public class LinearMechanism extends CatalystMechanism {
         return motor;
     }
 
+    @Override
+    protected CatalystMotor primaryMotorForSysId() {
+        return motor;
+    }
+
     // ===========================================
     //                  CONFIG
     // ===========================================

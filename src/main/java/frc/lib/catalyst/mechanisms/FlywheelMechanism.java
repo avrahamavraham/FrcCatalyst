@@ -324,6 +324,11 @@ public class FlywheelMechanism extends CatalystMechanism {
     }
 
     public CatalystMotor getPrimaryMotor() { return primaryMotor; }
+
+    @Override
+    protected CatalystMotor primaryMotorForSysId() {
+        return primaryMotor;
+    }
     public CatalystMotor getSecondaryMotor() { return secondaryMotor; }
 
     // ===========================================

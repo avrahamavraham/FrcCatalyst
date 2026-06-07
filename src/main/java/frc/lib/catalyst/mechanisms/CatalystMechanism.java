@@ -4,6 +4,8 @@ import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction;
+import frc.lib.catalyst.hardware.CatalystMotor;
 import frc.lib.catalyst.logging.CatalystInputs;
 import frc.lib.catalyst.logging.CatalystLog;
 
@@ -90,6 +92,40 @@ public abstract class CatalystMechanism extends SubsystemBase {
 
     /** Stop all outputs. Subclasses must implement. */
     protected abstract void stop();
+
+    /**
+     * Quasistatic SysId command — slow ramp characterising kS / kV. By
+     * default this runs against {@link #primaryMotorForSysId()} (the
+     * primary motor of the mechanism). Subclasses with multi-motor
+     * layouts can override.
+     *
+     * <p>Teams must call {@code SignalLogger.start()} from {@code robotInit()}
+     * for the WPILib SysId tooling to find the captured data.
+     */
+    public Command sysIdQuasistatic(Direction dir) {
+        CatalystMotor m = primaryMotorForSysId();
+        if (m == null) throw new UnsupportedOperationException(
+                name + " does not expose a motor for SysId. Override sysIdQuasistatic(...).");
+        return m.sysIdQuasistatic(this, dir).withName(name + ".SysIdQuasistatic." + dir);
+    }
+
+    /** Dynamic SysId command — step input characterising kA. */
+    public Command sysIdDynamic(Direction dir) {
+        CatalystMotor m = primaryMotorForSysId();
+        if (m == null) throw new UnsupportedOperationException(
+                name + " does not expose a motor for SysId. Override sysIdDynamic(...).");
+        return m.sysIdDynamic(this, dir).withName(name + ".SysIdDynamic." + dir);
+    }
+
+    /**
+     * Override in mechanisms that have a clear "primary motor" to run
+     * SysId against. Default returns {@code null} so the SysId helpers
+     * complain loudly instead of silently doing nothing. Most mechanisms
+     * just need to return their leader motor.
+     */
+    protected CatalystMotor primaryMotorForSysId() {
+        return null;
+    }
 
     /** Update telemetry. Called from periodic(). Subclasses should override. */
     protected void updateTelemetry() {}

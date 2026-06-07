@@ -238,6 +238,11 @@ public class WinchMechanism extends CatalystMechanism {
     public CatalystMotor getMotor() { return motor; }
     public CatalystMotor getSecondMotor() { return secondMotor; }
 
+    @Override
+    protected CatalystMotor primaryMotorForSysId() {
+        return motor;
+    }
+
     // ===========================================
     //                  CONFIG
     // ===========================================

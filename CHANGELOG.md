@@ -5,6 +5,21 @@ All notable changes to FrcCatalyst are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.0-beta] — 2026-06-07
+
+### Added — driver experience
+- **`RumbleEvents`** — bind any `Trigger` to an Xbox-controller rumble pattern (`SHORT`, `LONG`, `DOUBLE_TAP`, `TRIPLE_TAP`, `RAMP`). Targets driver, operator, or both. A scheduler updates the rumble state every loop so back-to-back events don't fight.
+- **`DriverProfile`** — per-driver feel: radial deadband, response curve (`LINEAR` / `QUADRATIC` / `CUBIC` / `EXPO`), max-speed cap, slow-mode multiplier. Wrap a joystick `DoubleSupplier` once and the swerve drive gets a shaped supplier in return. Swap profiles to swap drivers.
+
+### Added — library
+- **`RobotState`** — singleton view of "what's the robot doing right now": mode (`isAutonomous`, `isTeleop`, `isDisabled`, …), alliance, match time, station, battery voltage, `timeSinceEnable`. Cached for 5 ms so re-reading from multiple subsystems is cheap. Exposes ready-to-bind triggers: `RobotState.lateMatch(20)`, `.lowBattery(11.0)`, `.autonomous()`, `.disabled()`.
+- **SysId for every motor** — `CatalystMotor.sysIdQuasistatic(Direction)` / `.sysIdDynamic(Direction)` produce ready-to-bind Commands using WPILib's `SysIdRoutine` and Phoenix-6's `SignalLogger`. `CatalystMechanism` adds zero-arg variants that target the mechanism's primary motor — no per-mechanism boilerplate. Teams need to call `SignalLogger.start()` once in `robotInit()`.
+- **`LimelightTriggers`** — `Trigger` wrappers around the Limelight NT keys: `hasTarget()`, `tagInView(int)`, `detectorClass(String)`, `targetWithinArea(double)`, `horizontalErrorBelow(double)`. Plus diagnostic readers (`tx()`, `ty()`, `ta()`, `tid()`, `latencyMs()`). Works with any Limelight on the bus — point it at the NT table name and bind.
+- **`SwerveSetpointGenerator`** — light-weight chassis-aware accel/skid clamp. Wraps a requested `ChassisSpeeds` and returns one limited by max wheel speed, max angular rate, and max translational accel (per-second delta-v cap). Cheaper than a full feasibility solver, handles the common driver-induced skid case.
+
+### Added — tools
+- **Health Dashboard timeline** — `HealthHistory` events now render as a swim-lane timeline at the bottom of the dashboard. One lane per `subsystem/id`, severity-colored dots (filled = fired, hollow = cleared), hover to see the live detail string and "X.X s ago". Auto-rescales to the current event window.
+
 ## [0.3.6.1-beta] — 2026-05-18
 
 ### Fixed — silent follower loss in Linear / Rotational

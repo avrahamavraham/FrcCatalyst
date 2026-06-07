@@ -289,6 +289,11 @@ public class RollerMechanism extends CatalystMechanism {
     }
 
     /** Get the underlying motor for advanced use. */
+    @Override
+    protected CatalystMotor primaryMotorForSysId() {
+        return motor;
+    }
+
     public CatalystMotor getMotor() {
         return motor;
     }

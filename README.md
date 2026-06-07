@@ -89,6 +89,15 @@ operatorController.b().onTrue(elevator.goTo("STOW"));
 
 ---
 
+## What's New in v0.4.0-beta
+
+- **Driver feel** — `RumbleEvents` (bind any Trigger to controller rumble, five built-in patterns) and `DriverProfile` (deadband, response curve, max-speed cap, slow mode — swap drivers by swapping profiles).
+- **`RobotState`** — one singleton wrapping `DriverStation` and `RobotController`. Cached, has ready-to-bind triggers (`lateMatch(20)`, `lowBattery(11.0)`, `autonomous()`).
+- **SysId on every motor** — `mechanism.sysIdQuasistatic(Direction)` / `.sysIdDynamic(Direction)` work out of the box. Phoenix-6 SignalLogger captures the data; just call `SignalLogger.start()` in `robotInit()`.
+- **`LimelightTriggers`** — `hasTarget()`, `tagInView(int)`, `detectorClass("note")`, `targetWithinArea(2.0)`, etc.
+- **`SwerveSetpointGenerator`** — accel-clamped chassis-aware setpoint wrapper for the common skid case.
+- **Health Dashboard timeline** — recent `HealthHistory` events as severity-colored swim-lanes with hover tooltips.
+
 ## What's New in v0.3.6.1-beta
 
 - **Silent follower loss in Linear / Rotational, fixed.** `.follower(canId, oppose)` is now additive on every mechanism (same fix that landed for Claw and Flywheel in v0.3.5). The pre-existing `additionalFollower(...)` workaround is `@Deprecated` and now forwards to `.follower(...)`.

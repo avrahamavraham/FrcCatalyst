@@ -195,6 +195,87 @@
     margin-bottom: 16px;
   }
 
+  /* ============================================
+     Timeline (HealthHistory swim-lanes)
+     ============================================ */
+  .timeline-section {
+    margin: 32px 0 60px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px 22px;
+    position: relative;
+  }
+  .timeline-head {
+    display: flex; align-items: baseline; gap: 12px;
+    margin-bottom: 12px;
+  }
+  .timeline-head h2 {
+    margin: 0; font-size: 13px;
+    text-transform: uppercase; letter-spacing: 1.4px;
+    color: var(--fg-muted); font-weight: 700;
+  }
+  .timeline-hint { font-size: 11px; color: var(--fg-dim); }
+  .timeline {
+    position: relative;
+    display: flex; flex-direction: column;
+    gap: 4px;
+    min-height: 60px;
+    overflow-x: auto;
+  }
+  .timeline-lane {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px dashed var(--border);
+    padding: 6px 0;
+  }
+  .timeline-lane:last-child { border-bottom: 0; }
+  .timeline-lane .lane-name {
+    font-size: 11px; font-family: ui-monospace, monospace;
+    color: var(--fg-muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .timeline-track {
+    position: relative;
+    height: 18px;
+    background:
+      linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px) 0 50%/40px 100% repeat-x;
+    border-radius: 3px;
+  }
+  .timeline-event {
+    position: absolute;
+    top: 50%; transform: translate(-50%, -50%);
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform 0.1s ease;
+  }
+  .timeline-event:hover { transform: translate(-50%, -50%) scale(1.4); }
+  .timeline-event.fired   { box-shadow: 0 0 6px currentColor; }
+  .timeline-event.cleared { background: transparent !important; border: 2px solid currentColor; }
+  .timeline-event.sev-INFO  { background: var(--fg-muted); color: var(--fg-muted); }
+  .timeline-event.sev-WARN  { background: var(--warn);     color: var(--warn); }
+  .timeline-event.sev-ERROR { background: var(--err);      color: var(--err); }
+  .timeline-tooltip {
+    position: fixed;
+    display: none;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 12px; color: var(--fg);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+    pointer-events: none;
+    z-index: 200;
+    max-width: 320px;
+  }
+  .timeline-tooltip .tt-id { color: var(--accent); font-weight: 600; }
+  .timeline-tooltip .tt-kind.fired   { color: var(--warn); }
+  .timeline-tooltip .tt-kind.cleared { color: var(--ok); }
+  .timeline-tooltip .tt-detail { color: var(--fg-muted); margin-top: 4px; font-family: ui-monospace, monospace; font-size: 11px; }
+
   footer {
     position: fixed;
     bottom: 0; left: 0; right: 0;
@@ -263,6 +344,16 @@
     <div>Connect to a robot to see live health status.</div>
   </div>
   <div id="subsystems" class="subsystems"></div>
+
+  <!-- Timeline of recent HealthHistory events -->
+  <section class="timeline-section" id="timelineSection">
+    <div class="timeline-head">
+      <h2>Recent events</h2>
+      <span class="timeline-hint" id="timelineHint">— waiting for /Catalyst/Health/History —</span>
+    </div>
+    <div class="timeline" id="timeline"></div>
+    <div id="timelineTooltip" class="timeline-tooltip"></div>
+  </section>
 </main>
 
 <footer>
@@ -361,6 +452,9 @@ const state = {
   lastUpdate: 0,
   filter: 'all',
   search: '',
+  // Newest-first list of history events from /Catalyst/Health/History.
+  // Each entry: { ts, kind, severity, subsystem, id, detail }
+  history: [],
 };
 
 function parseHealthKey(fullName) {
@@ -369,6 +463,9 @@ function parseHealthKey(fullName) {
   const rest = fullName.slice(prefix.length);
   if (rest === 'ErrorCount' || rest === 'WarnCount' || rest === 'InfoCount' || rest === 'Healthy') {
     return { summary: rest };
+  }
+  if (rest === 'History') {
+    return { history: true };
   }
   const parts = rest.split('/');
   if (parts.length === 3) {
@@ -400,6 +497,25 @@ function onValue(name, value) {
     render();
     return;
   }
+  if (parsed.history) {
+    // value is a String[] of pipe-delimited entries, newest first.
+    // Format: timestamp|kind|severity|subsystem|id|detail
+    const arr = Array.isArray(value) ? value : [];
+    state.history = arr.map(line => {
+      const p = line.split('|');
+      return {
+        ts: parseFloat(p[0]) || 0,
+        kind: p[1] || 'FIRED',
+        severity: p[2] || 'INFO',
+        subsystem: p[3] || '',
+        id: p[4] || '',
+        detail: p[5] || '',
+      };
+    });
+    state.lastUpdate = Date.now();
+    renderTimeline();
+    return;
+  }
   const c = ensureCheck(parsed.subsystem, parsed.id);
   if (parsed.field === 'description') c.description = value;
   else if (parsed.field === 'severity') c.severity = value;
@@ -408,6 +524,77 @@ function onValue(name, value) {
   else if (parsed.field === 'firedAt') c.firedAt = value;
   state.lastUpdate = Date.now();
   render();
+}
+
+function renderTimeline() {
+  const container = $('timeline');
+  const hint = $('timelineHint');
+  if (state.history.length === 0) {
+    container.innerHTML = '';
+    hint.textContent = '— waiting for /Catalyst/Health/History —';
+    return;
+  }
+
+  // Time window: from oldest event in buffer to "now" (FPGA seconds).
+  // We use max event ts as "now" since the dashboard doesn't have FPGA.
+  const tMax = Math.max(...state.history.map(e => e.ts));
+  const tMin = Math.min(...state.history.map(e => e.ts));
+  const span = Math.max(0.5, tMax - tMin);
+
+  // Group by (subsystem/id) lane.
+  const lanes = new Map();
+  for (const e of state.history) {
+    const lane = `${e.subsystem}/${e.id}`;
+    if (!lanes.has(lane)) lanes.set(lane, { label: lane, events: [] });
+    lanes.get(lane).events.push(e);
+  }
+
+  hint.textContent = `${state.history.length} events · window ${span.toFixed(1)} s`;
+
+  container.innerHTML = '';
+  const tooltip = $('timelineTooltip');
+
+  // Sort lanes alphabetically.
+  const sortedLanes = [...lanes.values()].sort((a, b) => a.label.localeCompare(b.label));
+  for (const lane of sortedLanes) {
+    const laneEl = document.createElement('div');
+    laneEl.className = 'timeline-lane';
+    const nameEl = document.createElement('div');
+    nameEl.className = 'lane-name';
+    nameEl.textContent = lane.label;
+    nameEl.title = lane.label;
+    laneEl.appendChild(nameEl);
+
+    const track = document.createElement('div');
+    track.className = 'timeline-track';
+    for (const e of lane.events) {
+      const dot = document.createElement('div');
+      const sev = ['INFO', 'WARN', 'ERROR'].includes(e.severity) ? e.severity : 'INFO';
+      dot.className = `timeline-event sev-${sev} ${e.kind === 'CLEARED' ? 'cleared' : 'fired'}`;
+      const pct = ((e.ts - tMin) / span) * 100;
+      dot.style.left = `${pct}%`;
+      dot.addEventListener('mouseenter', (ev) => {
+        tooltip.innerHTML = `
+          <div><span class="tt-id">${escapeHtml(lane.label)}</span></div>
+          <div><span class="tt-kind ${e.kind === 'CLEARED' ? 'cleared' : 'fired'}">${e.kind}</span> · ${sev}</div>
+          ${e.detail ? `<div class="tt-detail">${escapeHtml(e.detail)}</div>` : ''}
+          <div class="tt-detail">${(tMax - e.ts).toFixed(2)} s ago</div>
+        `;
+        tooltip.style.display = 'block';
+        const rect = ev.target.getBoundingClientRect();
+        tooltip.style.left = (rect.left + 14) + 'px';
+        tooltip.style.top  = (rect.top - 8) + 'px';
+      });
+      dot.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+      track.appendChild(dot);
+    }
+    laneEl.appendChild(track);
+    container.appendChild(laneEl);
+  }
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
 }
 
 function setStatus(kind, detail) {
