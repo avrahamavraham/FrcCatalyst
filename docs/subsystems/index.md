@@ -118,6 +118,53 @@ swerve.pathfindToPose(() -> target, new PathConstraints(3, 2, …)); // your own
 If `AutoBuilder` isn't configured the command falls back to PID-only
 align and prints a driver-station error explaining why — no crash.
 
+### Choreo paths (v0.8.0+)
+
+Follow [Choreo](https://sleipnirgroup.github.io/Choreo/)'s time-optimal
+trajectories — loaded through PathPlanner, so **no extra vendordep** (Choreo
+exports, PathPlanner follows). Put the `.traj` files in
+`src/main/deploy/choreo/`:
+
+```java
+autonomousCommand = swerve.followChoreoPath("FourPieceFar");
+```
+
+Needs `AutoBuilder` configured (the `PathPlannerConfig` constructor). If the
+trajectory can't be loaded it reports to the driver station and returns a
+no-op instead of crashing.
+
+### driveToPiece — vision pursuit (v0.8.0+)
+
+The primitive the [Autopilot](../advanced/behavior.html) "acquire" action
+wants. Give it a supplier of the detected piece's field position (empty when
+your coprocessor sees nothing) and it drives onto it:
+
+```java
+swerve.driveToPiece(() -> vision.nearestFuelPose());          // defaults kP=3, tol=0.2m
+swerve.driveToPiece(() -> vision.nearestFuelPose(), 4.0, 0.15);
+```
+
+Stops when it arrives or the piece disappears. `vision.nearestFuelPose()`
+is your team-side detection method (`Supplier<Optional<Translation2d>>`).
+
+### WheelRadiusCalibration (v0.8.0+)
+
+Measures the **actual** wheel radius by spinning the robot — correcting the
+CAD value, a documented source of autonomous inaccuracy (tread wears and
+compresses). Compares the gyro arc to the distance odometry thinks each
+wheel rolled:
+
+```java
+test.a().onTrue(WheelRadiusCalibration.builder(swerve)
+    .currentWheelRadius(0.0508)   // your configured radius (m)
+    .driveBaseRadius(0.42)        // center → module distance (m)
+    .rotations(4)
+    .build());
+```
+
+The corrected radius + a copy-paste constant publish to
+`/Catalyst/Calibration/WheelRadius/...`.
+
 ### SwerveSetpointGenerator (v0.4.0+)
 
 Light chassis-aware accel/skid clamp. Wraps a `ChassisSpeeds` and

@@ -89,6 +89,16 @@ operatorController.b().onTrue(elevator.goTo("STOW"));
 
 ---
 
+## What's New in v0.8.0-beta
+
+- **Choreo paths** — `swerve.followChoreoPath(name)` (via PathPlanner, no extra dep).
+- **`driveToPiece`** — vision-pursuit primitive for the Autopilot acquire step.
+- **`WheelRadiusCalibration`** — spin the robot, get the corrected wheel radius (fixes CAD-vs-real odometry drift).
+- **`BrownoutMonitor`** — predict sag voltage, ease off output, preemptively trip `RobotSafety` before a brownout.
+- **`CatalystMotor.optimizeCanBus()`** — cut CAN-bus load on high-device-count robots (opt-in).
+- **`WpilogSink`** — record everything to a standard `.wpilog` that opens in AdvantageScope (no extra dep).
+- Roadmap updated: Tier 2 complete; QuestNav + maple-sim saved for later with integration notes; Auto Builder / log-scrubber tools declined (PathPlanner + AdvantageScope already do those).
+
 ## What's New in v0.7.0-beta
 
 - **`SystemCheck`** — pre-match self-test. Run every subsystem through a verification routine from one button; get a per-test pass/fail board, a `Ready` go/no-go, and a copy-paste report. Catches loose connectors, inverted motors, dead followers, stuck encoders — the failures that actually lose matches. No mainstream FRC library packages this. [Guide](https://tomas-1226.github.io/FrcCatalyst/advanced/system-check.html).

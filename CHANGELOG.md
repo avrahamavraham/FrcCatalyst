@@ -5,6 +5,19 @@ All notable changes to FrcCatalyst are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.8.0-beta] — 2026-06-09
+
+### Added — Tier 2 batch (drive, power, logging)
+- **Choreo paths** — `SwerveSubsystem.followChoreoPath(name)` follows Choreo's time-optimal `.traj` files through PathPlanner (no extra vendordep). Loads from `src/main/deploy/choreo/`; reports to the DS and no-ops if missing.
+- **`SwerveSubsystem.driveToPiece(Supplier<Optional<Translation2d>>)`** — vision-pursuit primitive the `Autopilot` "acquire" action wanted. Drives onto a detected piece, stops on arrival or when it disappears.
+- **`WheelRadiusCalibration`** — spins the robot and back-solves the actual wheel radius from gyro arc vs measured module arc, correcting the CAD value (a documented source of auto inaccuracy). Publishes the corrected radius + a copy-paste constant. Adds `SwerveSubsystem.getModuleDistances()`.
+- **`BrownoutMonitor`** — predicts sag voltage from `Σ current × R_internal`, exposes a graceful `outputScale()`, and preemptively trips `RobotSafety` before the radio drops.
+- **`CatalystMotor.Builder.optimizeCanBus()`** — raises only the status signals Catalyst reads and silences the rest, cutting CAN-bus load on high-device-count robots. Opt-in (default off) so it never starves a signal you depend on.
+- **`WpilogSink`** — records all Catalyst logging to a standard `.wpilog` (opens in AdvantageScope / DataLogTool; no extra vendordep). The "record" half of replay-style debugging; full deterministic replay still routes through AdvantageKit via the existing `CatalystInputs` bridge.
+
+### Notes
+- Tier 3 evaluated: the Auto Builder and log-scrubber browser tools were **declined** (PathPlanner's GUI and AdvantageScope already do those well — building inferior versions isn't worth it); WPILib Epilog is **documented as opt-in** (it works alongside `WpilogSink` without bundling a conflicting logging path). QuestNav and maple-sim are saved for later with integration notes in the [Roadmap](https://tomas-1226.github.io/FrcCatalyst/ROADMAP.html).
+
 ## [0.7.0-beta] — 2026-06-09
 
 ### Added — `SystemCheck` pre-match self-test

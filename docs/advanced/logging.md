@@ -106,26 +106,25 @@ CatalystLog.setSink(new AdvantageKitSink());
 > The library stays narrow on purpose; the bridge lives in your code where
 > you can adapt it to your AK version.
 
-## Bridging to DataLog (built-in WPILib)
+## Recording to WPILOG (built-in)
+
+`WpilogSink` (v0.8.0+) records everything Catalyst logs to a standard
+`.wpilog` — opens directly in **AdvantageScope**, the DataLogTool, or any
+WPILOG reader. No extra vendordep; DataLog ships with WPILib.
 
 ```java
-import edu.wpi.first.util.datalog.*;
-import edu.wpi.first.wpilibj.DataLogManager;
-
-DataLog datalog = DataLogManager.getLog();
-CatalystLog.setSink(new LogSink() {
-    final java.util.Map<String, DoubleLogEntry> doubles = new java.util.HashMap<>();
-    // ... cache per type, then forward into datalog entries
-    @Override public void log(String key, double v) {
-        doubles.computeIfAbsent(key, k -> new DoubleLogEntry(datalog, k)).append(v);
-    }
-    // ... and so on for the other types
-    @Override public void processInputs(String prefix, CatalystInputs inputs) {
-        // CatalystInputs#toLog already emits typed keys via LogTable — wire it
-        // through the same per-type appenders.
-    }
-});
+public void robotInit() {
+    // Records to /U/logs (USB) or ~/logs, also captures NT + DS data,
+    // and keeps mirroring to NetworkTables so live dashboards still work.
+    CatalystLog.setSink(new WpilogSink());
+}
 ```
+
+This is the lightweight **record** half of replay-style debugging — a
+complete, timestamped, scrubable log of every mechanism's inputs and outputs.
+For full deterministic **replay** (re-run modified code against the log),
+forward into AdvantageKit's `Logger` instead — the `CatalystInputs`
+`toLog`/`fromLog` layer is built for exactly that. See the bridge above.
 
 ## Fan-out to multiple sinks
 

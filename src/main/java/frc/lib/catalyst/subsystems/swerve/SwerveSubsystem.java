@@ -10,6 +10,7 @@ import com.pathplanner.lib.config.PIDConstants;
 import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 import com.pathplanner.lib.path.PathConstraints;
+import com.pathplanner.lib.path.PathPlannerPath;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.geometry.Pose2d;
@@ -611,6 +612,86 @@ public class SwerveSubsystem extends SubsystemBase {
     /** Pathfind-and-align with sensible defaults plus custom constraints. */
     public Command pathfindToPose(Supplier<Pose2d> targetPose, PathConstraints constraints) {
         return pathfindToPose(targetPose, 4.0, 0.02, constraints);
+    }
+
+    /**
+     * Follow a Choreo trajectory by name. Choreo's time-optimal {@code .traj}
+     * files are loaded through PathPlanner (no extra vendordep — Choreo
+     * tooling exports, PathPlanner follows), so this needs {@code AutoBuilder}
+     * configured via the {@link PathPlannerConfig} constructor.
+     *
+     * <p>Put the {@code .traj} files in {@code src/main/deploy/choreo/}. If the
+     * trajectory can't be loaded, reports the error to the driver station and
+     * returns a no-op rather than crashing.
+     *
+     * @param trajectoryName file name without the {@code .traj} extension
+     */
+    public Command followChoreoPath(String trajectoryName) {
+        try {
+            PathPlannerPath path = PathPlannerPath.fromChoreoTrajectory(trajectoryName);
+            return AutoBuilder.followPath(path).withName("Swerve.Choreo(" + trajectoryName + ")");
+        } catch (Exception e) {
+            DriverStation.reportError(
+                    "Failed to load Choreo trajectory \"" + trajectoryName + "\": " + e.getMessage(), true);
+            return runOnce(() -> {}).withName("Swerve.Choreo(missing:" + trajectoryName + ")");
+        }
+    }
+
+    /**
+     * Drive toward a vision-detected game piece and stop on top of it.
+     *
+     * <p>The supplier returns the piece's field-relative position when your
+     * detection coprocessor sees one, or empty when it doesn't — this is the
+     * missing primitive the {@code Autopilot} "acquire" action wants. While a
+     * piece is visible, drives field-centric toward it with the front of the
+     * robot leading; when it disappears or the robot arrives within
+     * {@code toleranceMeters}, the command ends.
+     *
+     * @param pieceFieldPose supplier of the detected piece position (field frame)
+     * @param translationKP  proportional gain for the approach (try 2.0–5.0)
+     * @param toleranceMeters arrival distance
+     */
+    public Command driveToPiece(Supplier<java.util.Optional<Translation2d>> pieceFieldPose,
+                                double translationKP, double toleranceMeters) {
+        PIDController xCtl = new PIDController(translationKP, 0, 0);
+        PIDController yCtl = new PIDController(translationKP, 0, 0);
+        final boolean[] arrived = { false };
+        return run(() -> {
+            var opt = pieceFieldPose.get();
+            if (opt.isEmpty()) {
+                driveFieldCentric(0, 0, 0);
+                return;
+            }
+            Translation2d target = opt.get();
+            Pose2d cur = getPose();
+            double dist = cur.getTranslation().getDistance(target);
+            arrived[0] = dist < toleranceMeters;
+            double maxApproach = maxSpeedMPS * 0.6;
+            double vx = MathUtil.clamp(xCtl.calculate(cur.getX(), target.getX()), -maxApproach, maxApproach);
+            double vy = MathUtil.clamp(yCtl.calculate(cur.getY(), target.getY()), -maxApproach, maxApproach);
+            driveFieldCentric(vx, vy, 0);
+        }).until(() -> arrived[0])
+          .finallyDo(interrupted -> driveFieldCentric(0, 0, 0))
+          .withName("Swerve.DriveToPiece");
+    }
+
+    /** Drive-to-piece with sensible defaults (kP = 3.0, tolerance = 0.2 m). */
+    public Command driveToPiece(Supplier<java.util.Optional<Translation2d>> pieceFieldPose) {
+        return driveToPiece(pieceFieldPose, 3.0, 0.2);
+    }
+
+    /**
+     * Per-module drive distances in metres (signed, cumulative) — used by
+     * {@link frc.lib.catalyst.util.WheelRadiusCalibration} and available for
+     * any custom odometry diagnostics.
+     */
+    public double[] getModuleDistances() {
+        var positions = drivetrain.getState().ModulePositions;
+        double[] out = new double[positions.length];
+        for (int i = 0; i < positions.length; i++) {
+            out[i] = positions[i].distanceMeters;
+        }
+        return out;
     }
 
     /** X-brake command (lock wheels). */

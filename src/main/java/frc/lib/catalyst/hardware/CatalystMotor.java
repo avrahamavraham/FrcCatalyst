@@ -1,5 +1,6 @@
 package frc.lib.catalyst.hardware;
 
+import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.configs.CurrentLimitsConfigs;
 import com.ctre.phoenix6.configs.MotionMagicConfigs;
@@ -225,6 +226,25 @@ public class CatalystMotor {
                             ? MotorAlignmentValue.Opposed
                             : MotorAlignmentValue.Aligned));
             followers.add(follower);
+        }
+
+        // Optional CAN-bus hygiene: raise only the status signals we actually
+        // read to the configured rate, then stop every other signal from
+        // broadcasting. On a high-device-count robot this meaningfully cuts
+        // bus utilization. Opt-in (default off) so it never silently starves a
+        // signal a team depends on.
+        if (builder.optimizeCanBus) {
+            BaseStatusSignal.setUpdateFrequencyForAll(builder.canUpdateHz,
+                    motor.getPosition(), motor.getVelocity(), motor.getMotorVoltage(),
+                    motor.getStatorCurrent(), motor.getSupplyCurrent(), motor.getDeviceTemp(),
+                    motor.getFault_Hardware(), motor.getFault_DeviceTemp(),
+                    motor.getFault_BootDuringEnable());
+            motor.optimizeBusUtilization();
+            for (TalonFX f : followers) {
+                BaseStatusSignal.setUpdateFrequencyForAll(builder.canUpdateHz,
+                        f.getStatorCurrent(), f.getDeviceTemp());
+                f.optimizeBusUtilization();
+            }
         }
 
         // Set up telemetry
@@ -512,6 +532,8 @@ public class CatalystMotor {
         private String name;
         private boolean inverted = false;
         private boolean brakeMode = true;
+        private boolean optimizeCanBus = false;
+        private double canUpdateHz = 50.0;
         private double currentLimit = 40;
         private double statorCurrentLimit = 80;
         private double gearRatio = 1.0;
@@ -542,6 +564,25 @@ public class CatalystMotor {
         public Builder name(String name) { this.name = name; return this; }
         public Builder inverted(boolean inverted) { this.inverted = inverted; return this; }
         public Builder brakeMode(boolean brakeMode) { this.brakeMode = brakeMode; return this; }
+
+        /**
+         * Reduce CAN-bus load: raise only the status signals Catalyst reads
+         * (position, velocity, voltage, currents, temp, faults) to
+         * {@code updateHz}, then stop every other signal on this device from
+         * broadcasting. Worth enabling on high-device-count robots. Off by
+         * default — when on, don't read raw TalonFX signals Catalyst doesn't,
+         * or raise them yourself first.
+         *
+         * @param updateHz status-signal rate (50 Hz is a good default)
+         */
+        public Builder optimizeCanBus(double updateHz) {
+            this.optimizeCanBus = true;
+            this.canUpdateHz = updateHz;
+            return this;
+        }
+
+        /** Optimize CAN bus utilization at the default 50 Hz. */
+        public Builder optimizeCanBus() { return optimizeCanBus(50.0); }
         public Builder currentLimit(double amps) { this.currentLimit = amps; return this; }
         public Builder statorCurrentLimit(double amps) { this.statorCurrentLimit = amps; return this; }
         public Builder gearRatio(double ratio) { this.gearRatio = ratio; return this; }

@@ -266,6 +266,45 @@ Each `Event` carries `timestamp`, `subsystem`, `id`, `severity`, `kind`
 (FIRED / CLEARED), and the live `detail` string at the moment of
 transition.
 
+## BrownoutMonitor
+
+Predicts an oncoming brownout and eases off *before* the radio drops. A
+battery sags under load by `I × R_internal`; the monitor estimates the
+voltage you'd sag to and gives you a graceful output scale plus an optional
+preemptive `RobotSafety` trip.
+
+```java
+BrownoutMonitor brownout = BrownoutMonitor.builder()
+    .totalCurrent(() -> pdh.getTotalCurrent())
+    .batteryInternalResistance(0.020)   // ~20 mΩ healthy; estimate from match logs
+    .warnVoltage(7.5).tripVoltage(7.0)
+    .tripsRobotSafety(true)
+    .build();
+
+// each loop:
+brownout.update();
+double scale = brownout.outputScale();   // 1.0 healthy → 0 near the floor
+drive.driveFieldCentric(vx * scale, vy * scale, omega * scale);
+```
+
+Publishes measured + predicted voltage, current, and output scale to
+`/Catalyst/Brownout/...`.
+
+## CAN bus optimization
+
+`CatalystMotor.Builder.optimizeCanBus()` raises only the status signals
+Catalyst reads (position, velocity, voltage, currents, temp, faults) to a
+set rate, then stops every other signal on the device from broadcasting —
+a real bus-utilization win on high-device-count robots. Opt-in (default
+off) so it never starves a signal you depend on.
+
+```java
+CatalystMotor.builder(10)
+    .optimizeCanBus()        // 50 Hz on the used signals, the rest silenced
+    // or .optimizeCanBus(100)
+    .build();
+```
+
 ## RobotSafety
 
 Opt-in cross-mechanism watchdog driven by `HealthMonitor`. When too

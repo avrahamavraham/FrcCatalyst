@@ -133,60 +133,92 @@ staying lighter-weight.
 
 ---
 
-## Tier 2 — close real gaps
+### 4. Deterministic log replay harness ✅ RECORD HALF SHIPPED (v0.8.0)
 
-### 5. Swerve odometry / wheel-radius calibration
+`WpilogSink` now records all Catalyst logging to a standard `.wpilog`
+(AdvantageScope-readable, no extra dep). Full deterministic *replay*
+still routes through AdvantageKit's `Logger` via the `CatalystInputs`
+bridge — reimplementing AK's replay engine isn't worth the maintenance
+when the IO layer already bridges to it.
+
+---
+
+## Tier 2 — close real gaps  ✅ ALL SHIPPED (v0.8.0)
+
+### 5. Swerve odometry / wheel-radius calibration ✅
 
 A `CalibrationRoutine` that spins the robot a known number of rotations
 (or drives a known distance) and back-solves the **actual** wheel radius /
 track width vs the CAD value — the documented source of auto inaccuracy.
 Outputs the corrected constants to NT and a copy-paste snippet.
 
-### 6. Brownout prediction → `RobotSafety`
+### 6. Brownout prediction → `RobotSafety` ✅
 
-Estimate brownout risk from `Σ supply current × battery internal
-resistance` vs the measured voltage, and trip `RobotSafety` *before* the
-radio drops. `RobotState` already has battery voltage; this closes the loop
-with the new `RobotSafety.trip(...)`.
+`BrownoutMonitor` — predicts sag voltage from `Σ current × R_internal`,
+gives a graceful output scale, and preemptively trips `RobotSafety`.
 
-### 7. Choreo trajectory support
+### 7. Choreo trajectory support ✅
 
-`AutoBuilder.followChoreoPath("path.traj")` wrapper + a `BehaviorEngine`
-`Action` factory, so Choreo's time-optimal paths feed the autonomy stack
-alongside PathPlanner.
+`SwerveSubsystem.followChoreoPath(name)` — loads Choreo `.traj` files
+through PathPlanner (no extra vendordep) and follows them.
 
-### 8. Vision piece-pursuit helper
+### 8. Vision piece-pursuit helper ✅
 
-`SwerveSubsystem.driveToDetectedPiece(Supplier<Optional<Translation2d>>)` —
-the primitive the `Autopilot` examples assume. Drives toward a
-coprocessor-detected piece with a vision-relative controller, the missing
-convenience over `pathfindToPose`.
+`SwerveSubsystem.driveToPiece(Supplier<Optional<Translation2d>>)` — the
+primitive the `Autopilot` "acquire" action wants.
 
-### 9. CAN bus utilization optimization
+### 9. CAN bus utilization optimization ✅
 
-Wrap Phoenix-6 `BaseStatusSignal.refreshAll()` + `optimizeBusUtilization()`
-in `CatalystMotor`, with configurable update frequencies. Real
-latency/reliability win for high-device-count robots; low risk.
+`CatalystMotor.Builder.optimizeCanBus()` — raises only the used status
+signals, silences the rest. Opt-in.
 
 ---
 
-## Tier 3 — ecosystem & tools
+## Tier 3 — ecosystem & tools (evaluated; mostly declined)
 
-### 10. Auto Builder browser tool
+### 10. Auto Builder browser tool — ❌ declined
 
-A visual editor for `BehaviorEngine` / `Strategist` autos that emits the
-Java — same idea as the mechanism Builder, for strategies. Drag actions,
-set preconditions and fallbacks, export.
+PathPlanner's GUI already does visual auto editing well, and the
+`BehaviorEngine` autos are reactive (preconditions, fallbacks) in a way a
+static visual editor can't capture. Building a worse version isn't worth
+it.
 
-### 11. Match replay / log scrubber tool
+### 11. Match replay / log scrubber tool — ❌ declined
 
-A browser tool that loads a WPILOG and scrubs pose + mechanism state on a
-field view — pairs with feature #4.
+AdvantageScope is the gold-standard WPILOG scrubber and it's free. The
+right move was making Catalyst *produce* AdvantageScope-readable logs
+(`WpilogSink`, #4), not building an inferior viewer.
 
-### 12. WPILib Epilog (`@Logged`) support
+### 12. WPILib Epilog (`@Logged`) support — ⚠️ documented, not bundled
 
-Offer an annotation-driven logging path alongside the manual
-`CatalystInputs`, for teams that prefer WPILib's 2025+ Epilog.
+Epilogue's annotation processor logs annotated fields to DataLog. It works
+*alongside* Catalyst (both land in the same `.wpilog` once `WpilogSink` is
+installed) — annotate your own classes and they show up next to Catalyst's
+output. Bundling it into Catalyst's internals would create a second,
+conflicting logging path, so it stays opt-in on the team side.
+
+---
+
+## Reference: QuestNav integration (when we build it)
+
+Research notes for the saved-for-later QuestNav source. QuestNav exposes a
+`QuestNav` class (their vendordep) with `getAllUnreadPoseFrames()` →
+`PoseFrame` (a `Pose3d` + `dataTimestamp()` + `isTracking()`), in the
+**headset frame**. Robot-side pattern:
+
+```
+for (frame : questNav.getAllUnreadPoseFrames())
+    if (frame.isTracking())
+        addVisionMeasurement(frame.pose().transformBy(ROBOT_TO_QUEST.inverse()),
+                             frame.dataTimestamp(), stdDevs);
+```
+
+This maps cleanly onto Catalyst's `CameraSource` interface — a
+`QuestNavSource` would implement `getEstimatedPose()` returning the latest
+tracking `PoseFrame` as a `PoseEstimate`, and drop straight into the
+hardened multi-camera fusion. The only wrinkle: it needs the QuestNav
+vendordep on the classpath, so it'd ship as an optional integration
+(present only if the team installs QuestNav). Low effort once we commit.
 
 ---
 
