@@ -89,6 +89,11 @@ operatorController.b().onTrue(elevator.goTo("STOW"));
 
 ---
 
+## What's New in v0.7.0-beta
+
+- **`SystemCheck`** — pre-match self-test. Run every subsystem through a verification routine from one button; get a per-test pass/fail board, a `Ready` go/no-go, and a copy-paste report. Catches loose connectors, inverted motors, dead followers, stuck encoders — the failures that actually lose matches. No mainstream FRC library packages this. [Guide](https://tomas-1226.github.io/FrcCatalyst/advanced/system-check.html).
+- **[Roadmap + competitive analysis](https://tomas-1226.github.io/FrcCatalyst/ROADMAP.html)** — where Catalyst stands vs YAGSL / AdvantageKit / maple-sim / QuestNav / Choreo, and what's next (QuestNav pose source, maple-sim physics sim, deterministic replay).
+
 ## What's New in v0.6.1-beta
 
 - **Cleanup pass.** Audited every doc example against the source; fixed methods that were documented but never built and two browser tools generating non-compiling code.

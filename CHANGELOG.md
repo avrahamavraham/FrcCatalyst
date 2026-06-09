@@ -5,6 +5,18 @@ All notable changes to FrcCatalyst are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.0-beta] — 2026-06-09
+
+### Added — `SystemCheck` pre-match self-test
+- New `frc.lib.catalyst.util.SystemCheck` — run every subsystem through a verification routine from one button and get a go/no-go board before queueing. Catches the failures that actually lose matches: a loose connector, an inverted motor after a swap, a dead follower, an encoder stuck at zero.
+  - `check(name, BooleanSupplier)` — instant pass/fail (battery, gyro, sensor sanity).
+  - `timed(name, action, seconds, pass, cleanup)` — apply an action for a duration, confirm a result, always clean up. The classic use is "drive the motor, confirm the encoder moves and current is sane" — catching dead motors, disconnected encoders, and backwards followers.
+  - Publishes per-test `PASS`/`FAIL: reason`, a `Ready` boolean, and a copy-paste `Report` to `/Catalyst/SystemCheck/<name>/`. Check lambdas are exception-guarded.
+- Docs: [System Check](https://tomas-1226.github.io/FrcCatalyst/advanced/system-check.html).
+
+### Added — Roadmap + competitive analysis
+- New [docs/ROADMAP.md](https://tomas-1226.github.io/FrcCatalyst/ROADMAP.html) — researched analysis of where Catalyst stands vs YAGSL / AdvantageKit / maple-sim / QuestNav / Choreo, and a prioritized feature plan. SystemCheck is the first Tier-1 item shipped; QuestNav pose source and maple-sim physics simulation are next.
+
 ## [0.6.1-beta] — 2026-06-09
 
 ### Cleanup pass — API additions + doc/tool correctness
