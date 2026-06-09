@@ -5,6 +5,17 @@ All notable changes to FrcCatalyst are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.5.1-beta] — 2026-06-09
+
+### Added / Changed — SOTF hardening
+- **`ShotCompensation`** (`util/`) — live operator aim bias + defense robustness. Turret / distance / RPM / hood bias offsets (nudge methods for D-pad binding), a `velocityScale` SOTF-aggressiveness knob, plus a **velocity deadband and clamp** so a defender's hit can't spike the measured chassis speed and fling the aim. Values publish to `/Catalyst/Aiming/<name>/...`.
+- **`AimingSolver` upgrades**:
+  - Accepts an optional `ShotCompensation` (`.compensation(...)`) and applies bias + conditioned velocity on every solve.
+  - `.maxRange(m)` — shots beyond your tested effective range are marked infeasible.
+  - `Solution` now carries `turretFieldRateDps()` — the analytic field-bearing rate (`(rᵧ·vₓ − rₓ·vᵧ)/|r|²`) for turret velocity feedforward.
+  - Shooter / hood lookups now use the distance-biased lookup distance.
+- **`TurretMechanism` velocity feedforward** — `track(...)` differentiates the resolved command and applies a `kV` voltage feedforward so the turret leads a moving goal rather than lagging it. Skips the unwrap-jump loop, clamps to ±2 V.
+
 ## [0.5.0-beta] — 2026-06-09
 
 ### Added — Turret + Shoot-On-The-Fly

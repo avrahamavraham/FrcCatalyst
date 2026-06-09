@@ -89,6 +89,12 @@ operatorController.b().onTrue(elevator.goTo("STOW"));
 
 ---
 
+## What's New in v0.5.1-beta
+
+- **`ShotCompensation`** — live aim-bias module for when you're defended or the tables drift. Turret/distance/RPM/hood nudges (D-pad-bindable), a SOTF-aggressiveness scale, and a velocity deadband + clamp so a defender's hit can't fling the turret.
+- **`AimingSolver` hardened** — consumes `ShotCompensation`, adds `.maxRange(...)` feasibility, and exposes the analytic field-bearing rate for turret feedforward.
+- **Turret velocity feedforward** — `track(...)` now leads a moving goal via `kV` feedforward instead of lagging a loop behind.
+
 ## What's New in v0.5.0-beta
 
 - **`TurretMechanism`** — single-axis turret with the continuous-angle wrap / soft-limit unwrap logic done right (picks the shortest reachable move, only unwraps when blocked). Field-relative aim, vision lock, optional CANcoder homing.

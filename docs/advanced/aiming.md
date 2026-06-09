@@ -168,6 +168,65 @@ RobotState.alliance() == DriverStation.Alliance.Red
 
 ---
 
+## Defense & live compensation
+
+`ShotCompensation` is the module you reach for when shots are
+consistently off, the field element has drifted, or a defender is
+shoving you and the velocity estimate gets noisy. Attach it to the
+solver and it's applied on top of every solve:
+
+```java
+ShotCompensation comp = ShotCompensation.builder()
+    .name("Turret")
+    .velocityDeadband(0.08)      // ignore chassis speed below 0.08 m/s
+    .maxCompensatedSpeed(4.0)    // clamp collision spikes
+    .build();
+
+AimingSolver solver = AimingSolver.builder()
+    .target(GOAL).shotTime(shotTimeTable).shooterRpm(rpmTable).hoodAngle(hoodTable)
+    .maxRange(6.5)               // mark shots past 6.5 m infeasible
+    .compensation(comp)
+    .build();
+
+// Operator dials — a D-pad is the classic binding:
+operator.povUp()   .onTrue(Commands.runOnce(() -> comp.nudgeHoodBias(+1)));
+operator.povDown() .onTrue(Commands.runOnce(() -> comp.nudgeHoodBias(-1)));
+operator.povRight().onTrue(Commands.runOnce(() -> comp.nudgeTurretBias(+0.5)));
+operator.povLeft() .onTrue(Commands.runOnce(() -> comp.nudgeTurretBias(-0.5)));
+operator.start()   .onTrue(Commands.runOnce(comp::reset));
+
+// Getting shoved? Trust SOTF less while the bumper is held:
+operator.leftBumper().onTrue (Commands.runOnce(() -> comp.setVelocityScale(0.5)));
+operator.leftBumper().onFalse(Commands.runOnce(() -> comp.setVelocityScale(1.0)));
+```
+
+| Knob | What it does |
+|---|---|
+| `turretBias` (deg)     | added to the final aim bearing |
+| `distanceBias` (m)     | added to the lookup distance — shoot longer/shorter without re-aiming |
+| `rpmBias` / `hoodBias` | added to the looked-up shooter values |
+| `velocityScale` [0–2]  | SOTF aggressiveness. 1 = full comp, 0 = aim as if stationary |
+| `velocityDeadband` (m/s)| chassis speed below this is treated as zero (noise rejection) |
+| `maxCompensatedSpeed` (m/s)| the comp speed is clamped here so a collision spike can't fling the turret |
+
+The deadband and clamp are the defense-robustness pieces: a hit that
+makes the pose estimator briefly report a huge velocity won't throw the
+aim, because the speed feeding the virtual-goal shift is bounded. Values
+publish to `/Catalyst/Aiming/<name>/...` so the dashboard shows the
+current dialed-in bias.
+
+## Turret velocity feedforward
+
+`TurretMechanism.track(...)` doesn't just chase the solution a loop
+behind — it differentiates the resolved command and applies a `kV`
+voltage feedforward so the turret *leads* a moving goal. This is
+automatic once `kV` is set in the config (from [SysId](sysid.html)). The
+feedforward is skipped on the loop where an unwrap makes the command
+jump, and clamped to ±2 V so it assists rather than dominates the PID.
+
+`Solution.turretFieldRateDps()` exposes the analytic field-bearing rate
+if you want to do your own feedforward or log the tracking rate.
+
 ## Latency
 
 `AimingSolver` uses whatever pose you hand it. For best accuracy feed a

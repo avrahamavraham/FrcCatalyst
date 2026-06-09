@@ -3,6 +3,7 @@ package frc.lib.catalyst.mechanisms;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.lib.catalyst.hardware.CatalystMotor;
@@ -68,6 +69,11 @@ public class TurretMechanism extends CatalystMechanism {
     private double aimFieldAngleDegrees = Double.NaN;
     private boolean unwrapping = false;
     private boolean hasBeenZeroed = false;
+
+    // For velocity feedforward while tracking a moving goal: differentiate
+    // the resolved command across loops.
+    private double lastResolvedDeg = Double.NaN;
+    private double lastCommandTs = 0.0;
 
     public TurretMechanism(Config config) {
         super(config.name);
@@ -187,7 +193,27 @@ public class TurretMechanism extends CatalystMechanism {
         double naive = MathUtil.inputModulus(desiredRobotRelativeDeg, current - 180, current + 180);
         unwrapping = Math.abs(resolved - naive) > 180.0;
         setpointDegrees = resolved;
-        motor.setMotionMagicPosition(resolved / 360.0);
+
+        // Velocity feedforward: differentiate the resolved command and convert
+        // deg/s → turret rps → volts via kV. This lets the turret lead a moving
+        // goal instead of chasing it a loop behind. Skip the loop where an
+        // unwrap makes the command jump (the derivative would be garbage), and
+        // skip when kV isn't configured.
+        double ffVolts = 0.0;
+        double now = Timer.getFPGATimestamp();
+        if (config.kV > 0 && !Double.isNaN(lastResolvedDeg)) {
+            double dt = now - lastCommandTs;
+            double delta = resolved - lastResolvedDeg;
+            if (dt > 1e-4 && dt < 0.5 && Math.abs(delta) < 180.0) {
+                double rps = (delta / dt) / 360.0;
+                ffVolts = config.kV * rps;
+                ffVolts = MathUtil.clamp(ffVolts, -2.0, 2.0); // FF shouldn't dominate
+            }
+        }
+        lastResolvedDeg = resolved;
+        lastCommandTs = now;
+
+        motor.setMotionMagicPosition(resolved / 360.0, ffVolts);
     }
 
     // ============================================================

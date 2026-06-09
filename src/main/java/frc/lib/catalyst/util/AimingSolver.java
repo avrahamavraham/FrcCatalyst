@@ -69,8 +69,12 @@ public final class AimingSolver {
      * @param hoodDegrees          looked-up hood angle (0 if no table supplied).
      * @param virtualGoal          the motion-compensated aim point in field
      *                             coordinates (the real target when stationary).
+     * @param turretFieldRateDps   rate of change of the field bearing
+     *                             (degrees/second), for turret velocity
+     *                             feedforward. Subtract the robot's yaw rate to
+     *                             get the robot-relative turret rate.
      * @param feasible             false when the solve produced a degenerate
-     *                             result (robot essentially on top of the target).
+     *                             result (robot on the target, or beyond max range).
      */
     public record Solution(
             double turretFieldAngleDeg,
@@ -79,6 +83,7 @@ public final class AimingSolver {
             double shooterRpm,
             double hoodDegrees,
             Translation2d virtualGoal,
+            double turretFieldRateDps,
             boolean feasible) {}
 
     private final InterpolatingTable shotTime;   // distance(m) -> flight time(s); may be null
@@ -86,6 +91,8 @@ public final class AimingSolver {
     private final InterpolatingTable hoodAngle;  // distance(m) -> degrees; may be null
     private final int iterations;
     private final double minFeasibleDistance;
+    private final double maxRange;               // metres; Double.MAX_VALUE = unbounded
+    private final ShotCompensation comp;         // may be null
 
     private volatile Translation2d target;
 
@@ -95,6 +102,8 @@ public final class AimingSolver {
         this.hoodAngle = b.hoodAngle;
         this.iterations = Math.max(1, b.iterations);
         this.minFeasibleDistance = b.minFeasibleDistance;
+        this.maxRange = b.maxRange;
+        this.comp = b.comp;
         this.target = b.target;
     }
 
@@ -132,36 +141,61 @@ public final class AimingSolver {
         Translation2d robotXY = robotPose.getTranslation();
         Translation2d goal = target;
 
+        // Condition the velocity used for motion comp: deadband out noise,
+        // clamp collision spikes, scale by the SOTF aggressiveness knob. With
+        // no compensation object this is the raw field velocity.
+        double vx = (comp != null) ? comp.conditionVelocity(fieldRelativeSpeeds.vxMetersPerSecond)
+                                   : fieldRelativeSpeeds.vxMetersPerSecond;
+        double vy = (comp != null) ? comp.conditionVelocity(fieldRelativeSpeeds.vyMetersPerSecond)
+                                   : fieldRelativeSpeeds.vyMetersPerSecond;
+
         // First pass uses the real target distance to seed the flight time.
         double dist = goal.getDistance(robotXY);
         double tof = lookup(shotTime, dist, 0.0);
 
         Translation2d virtualGoal = goal;
         for (int i = 0; i < iterations && tof > 0.0; i++) {
-            Translation2d shift = new Translation2d(
-                    fieldRelativeSpeeds.vxMetersPerSecond * tof,
-                    fieldRelativeSpeeds.vyMetersPerSecond * tof);
-            virtualGoal = goal.minus(shift);
+            virtualGoal = new Translation2d(goal.getX() - vx * tof, goal.getY() - vy * tof);
             dist = virtualGoal.getDistance(robotXY);
             tof = lookup(shotTime, dist, 0.0);
         }
 
         Translation2d aim = virtualGoal.minus(robotXY);
-        boolean feasible = aim.getNorm() >= minFeasibleDistance;
+        double aimNorm = aim.getNorm();
+        boolean feasible = aimNorm >= minFeasibleDistance && dist <= maxRange;
 
         // atan2 of a zero vector is 0; guard so a robot sitting on the target
         // doesn't spin the turret to a meaningless angle.
-        double fieldAngleDeg = feasible
+        double fieldAngleDeg = aimNorm >= minFeasibleDistance
                 ? Math.toDegrees(Math.atan2(aim.getY(), aim.getX()))
                 : 0.0;
 
+        // Analytic field-bearing rate for turret velocity feedforward.
+        // bearing = atan2(ry, rx) with r = virtualGoal - robot; the robot moves
+        // at (vx, vy) so d(r)/dt ≈ -(vx, vy) to first order. Then
+        //   d(bearing)/dt = (ry·vx − rx·vy) / |r|²   (rad/s).
+        double rateDps = 0.0;
+        if (aimNorm >= minFeasibleDistance) {
+            double n2 = aimNorm * aimNorm;
+            rateDps = Math.toDegrees((aim.getY() * vx - aim.getX() * vy) / n2);
+        }
+
+        // Shooter / hood read off the lookup distance with the operator's
+        // distance bias folded in (shoot longer/shorter without moving aim).
+        double lookupDist = dist + (comp != null ? comp.distanceBiasMeters() : 0.0);
+
+        double turretBias = (comp != null) ? comp.turretBiasDeg() : 0.0;
+        double rpmBias    = (comp != null) ? comp.rpmBias() : 0.0;
+        double hoodBias   = (comp != null) ? comp.hoodBiasDeg() : 0.0;
+
         return new Solution(
-                fieldAngleDeg,
-                dist,
+                fieldAngleDeg + turretBias,
+                lookupDist,
                 tof,
-                lookup(shooterRpm, dist, 0.0),
-                lookup(hoodAngle, dist, 0.0),
+                lookup(shooterRpm, lookupDist, 0.0) + rpmBias,
+                lookup(hoodAngle, lookupDist, 0.0) + hoodBias,
                 virtualGoal,
+                rateDps,
                 feasible);
     }
 
@@ -185,6 +219,8 @@ public final class AimingSolver {
         private InterpolatingTable hoodAngle;
         private int iterations = 3;
         private double minFeasibleDistance = 0.10; // metres
+        private double maxRange = Double.MAX_VALUE;
+        private ShotCompensation comp;
 
         /** Field-coordinate aim point. Resolve alliance before passing it in. */
         public Builder target(Translation2d target) {
@@ -226,6 +262,27 @@ public final class AimingSolver {
          */
         public Builder minFeasibleDistance(double meters) {
             this.minFeasibleDistance = meters;
+            return this;
+        }
+
+        /**
+         * Beyond this distance the shot is marked infeasible. Use your
+         * tested effective range so the "ready to fire" gate refuses
+         * hopeless long shots. Default unbounded.
+         */
+        public Builder maxRange(double meters) {
+            this.maxRange = meters;
+            return this;
+        }
+
+        /**
+         * Attach a live {@link ShotCompensation} — operator aim biases plus
+         * the velocity deadband / clamp / scale used for collision-robust
+         * motion compensation. Optional; without it the solver uses raw
+         * field velocity and zero bias.
+         */
+        public Builder compensation(ShotCompensation comp) {
+            this.comp = comp;
             return this;
         }
 
