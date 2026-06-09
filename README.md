@@ -89,6 +89,11 @@ operatorController.b().onTrue(elevator.goTo("STOW"));
 
 ---
 
+## What's New in v0.5.0-beta
+
+- **`TurretMechanism`** — single-axis turret with the continuous-angle wrap / soft-limit unwrap logic done right (picks the shortest reachable move, only unwraps when blocked). Field-relative aim, vision lock, optional CANcoder homing.
+- **`AimingSolver`** — Shoot-On-The-Fly math (virtual-goal method, iterated). Pure + unit-testable; feed it robot pose + field velocity, get back a field aim bearing, distance, flight time, RPM and hood from your lookup tables. Pairs with `TurretMechanism.track(...)` for shoot-while-moving. Full writeup: [Turret & Shoot-On-The-Fly](https://tomas-1226.github.io/FrcCatalyst/advanced/aiming.html).
+
 ## What's New in v0.4.1-beta
 
 - **`GhostReplay`** — record a teleop drive, replay it later as a ghost pose for driver practice. CSV files under the deploy directory, ghost pose published to NT for AdvantageScope field overlay.

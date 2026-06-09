@@ -5,6 +5,16 @@ All notable changes to FrcCatalyst are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.5.0-beta] — 2026-06-09
+
+### Added — Turret + Shoot-On-The-Fly
+- **`TurretMechanism`** (`mechanisms/`) — single-axis turret with continuous-angle resolution. The wrap / soft-limit "unwrap" logic picks the reachable `desired + 360·k` representation closest to the current position and only takes the long way around when the short way is blocked; clamps to a limit when the target is unreachable. Field-relative aim, vision-error lock, Motion Magic moving-goal tracking, health checks, live tuning, optional fused CANcoder for boot-time absolute homing.
+  - `resolveTurretAngle(desired, current, min, max)` is exposed `static` and pure for unit testing.
+  - Commands: `goToAngle`, `lockForward`, `holdAngle`, `aimAtFieldAngle`, `aimAtTarget`, `track`, `aimWithVision`, `zero`.
+- **`AimingSolver`** (`util/`) — hardware-independent Shoot-On-The-Fly math using the virtual-goal method: `virtualGoal = target − v_field · timeOfFlight`, iterated to converge. Returns a `Solution` record (field aim bearing, distance, flight time, shooter RPM, hood angle, virtual goal, feasibility). Builder takes `InterpolatingTable` lookups for shot time / RPM / hood. Static and SOTF modes; no motors or NT, so it's unit-testable.
+- **`TurretMechanismInputs`** (`io/`) — IO logging snapshot matching the other mechanisms.
+- Docs: [Turret & Shoot-On-The-Fly](https://tomas-1226.github.io/FrcCatalyst/advanced/aiming.html) with the full SOTF derivation and a tuning checklist.
+
 ## [0.4.1-beta] — 2026-06-07
 
 ### Added — driver experience

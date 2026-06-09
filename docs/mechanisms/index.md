@@ -128,6 +128,35 @@ When `requirePressureAbove(psi)` is set and a compressor with an analog
 pressure sensor is wired, the mechanism refuses to drive forward below the
 threshold (raising an alert rather than firing a piston dry).
 
+## TurretMechanism
+
+Single-axis turret with continuous-angle resolution and field-relative
+target tracking. Handles the wrap / soft-limit "unwrap" problem and pairs
+with `AimingSolver` for shoot-while-moving.
+
+```java
+TurretMechanism turret = new TurretMechanism(
+    TurretMechanism.Config.builder()
+        .name("Turret")
+        .motor(15)
+        .gearRatio(40.0)
+        .range(-200, 200)        // mechanical travel; >±180 gives overlap
+        .pid(40, 0, 0.5)
+        .feedforward(0.15, 0.0)
+        .motionMagic(8, 16, 80)
+        .tolerance(1.0)
+        .cancoder(16, 40.0)      // optional absolute homing
+        .build());
+
+// Track a fixed field point while driving:
+turret.setDefaultCommand(turret.track(
+    () -> solver.solve(drive.getPose(), drive.getFieldRelativeSpeeds()),
+    () -> drive.getHeading().getDegrees()));
+```
+
+Full guide — including the Shoot-On-The-Fly math — is in
+[Turret & Shoot-On-The-Fly](../advanced/aiming.html).
+
 ## Multi-follower configuration
 
 Every motor-driven mechanism accepts repeated `.follower(canId, oppose)`
