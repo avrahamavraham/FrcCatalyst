@@ -22,6 +22,7 @@ import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.networktables.StructPublisher;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.lib.catalyst.util.SlewRateLimiter;
 
@@ -509,14 +510,27 @@ public class SwerveSubsystem extends SubsystemBase {
     }
 
     /**
-     * Command to toggle slow mode while held.
-     * @param slowFactor speed multiplier when slow (e.g., 0.3 for 30% speed)
+     * Engage slow mode while a button is held.
+     *
+     * <p>This is a <b>state modifier, not a drive command</b> — it sets the
+     * speed multiplier the drive command reads and <b>requires no subsystem</b>,
+     * so the robot keeps driving (via its default command) while slow mode is
+     * held. Bind with {@code whileTrue}:
+     *
+     * <pre>{@code
+     * driver.leftBumper().whileTrue(swerve.slowModeWhileHeld(0.3));
+     * }</pre>
+     *
+     * <p>Because it owns nothing, you don't need {@code .proxy()} and it
+     * behaves correctly in simulation.
+     *
+     * @param slowFactor speed multiplier when slow (e.g. 0.3 for 30%)
      */
     public Command slowModeWhileHeld(double slowFactor) {
-        return startEnd(
-                () -> speedMultiplier = slowFactor,
-                () -> speedMultiplier = 1.0
-        ).withName("Swerve.SlowMode");
+        return Commands.startEnd(
+                () -> setSpeedMultiplier(slowFactor),
+                () -> setSpeedMultiplier(1.0)
+        ).withName("Swerve.SlowMode").ignoringDisable(true);
     }
 
     /**
@@ -760,16 +774,25 @@ public class SwerveSubsystem extends SubsystemBase {
         return runOnce(this::setBrake).withName("Swerve.XBrake");
     }
 
-    /** Reset heading command (zero the gyro). */
+    /**
+     * Reset heading (zero the gyro). A pure odometry op — requires no
+     * subsystem, so it won't interrupt the default drive command.
+     */
     public Command resetHeading() {
-        return runOnce(() -> {
-            resetPose(new Pose2d(getPose().getTranslation(), new Rotation2d()));
-        }).withName("Swerve.ResetHeading");
+        return Commands.runOnce(() ->
+                resetPose(new Pose2d(getPose().getTranslation(), new Rotation2d())))
+                .ignoringDisable(true)
+                .withName("Swerve.ResetHeading");
     }
 
-    /** Reset pose command. */
+    /**
+     * Reset the pose. A pure odometry op — requires no subsystem, so it won't
+     * interrupt the default drive command.
+     */
     public Command resetPoseCommand(Supplier<Pose2d> poseSupplier) {
-        return runOnce(() -> resetPose(poseSupplier.get())).withName("Swerve.ResetPose");
+        return Commands.runOnce(() -> resetPose(poseSupplier.get()))
+                .ignoringDisable(true)
+                .withName("Swerve.ResetPose");
     }
 
     // --- Internals ---

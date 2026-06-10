@@ -57,7 +57,7 @@ repositories {
 }
 
 dependencies {
-    implementation "com.github.TomAs-1226:FrcCatalyst:v0.10.0-beta"
+    implementation "com.github.TomAs-1226:FrcCatalyst:v0.10.1-beta"
 }
 ```
 </details>
@@ -97,6 +97,10 @@ operatorController.b().onTrue(elevator.goTo("STOW"));
 ```
 
 ---
+
+## What's New in v0.10.1-beta
+
+- **Fixed: `slowModeWhileHeld` (and the reset commands) no longer require the drivetrain**, so holding slow mode keeps you driving instead of interrupting the default command. No more `.proxy()` workaround, and it behaves in sim. Thanks to tcrvo (3211) for the report.
 
 ## What's New in v0.10.0-beta
 

@@ -5,6 +5,12 @@ All notable changes to FrcCatalyst are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.10.1-beta] — 2026-06-09
+
+### Fixed — swerve helper commands no longer steal the drivetrain
+- **`SwerveSubsystem.slowModeWhileHeld(...)` required the drivetrain**, so holding it interrupted the default drive command and the robot stopped moving (teams worked around it with `.proxy()`, which misbehaved in simulation). Slow mode is a *state modifier*, not a drive command — it now requires **no subsystem** and just sets the speed multiplier the drive command reads, so you keep driving while it's held. No `.proxy()` needed, correct in sim. Thanks to **tcrvo (3211)** for the report.
+- `resetHeading()` and `resetPoseCommand(...)` were also momentarily reserving the drivetrain (one-tick interrupt of the default command). They're pure odometry ops now requiring no subsystem, and run while disabled.
+
 ## [0.10.0-beta] — 2026-06-09
 
 ### Added — reactive autonomous architecture (path + reactive blending)
