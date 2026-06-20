@@ -1,0 +1,12 @@
+# Build + tooling
+build/
+.gradle/
+bin/
+
+# Simulation runtime artifacts (regenerated on each run)
+ctre_sim/
+networktables.json
+simgui-ds.json
+simgui-window.json
+simgui.json
+*-window.json

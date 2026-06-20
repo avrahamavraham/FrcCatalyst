@@ -5,6 +5,62 @@ All notable changes to FrcCatalyst are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.0-rc1] — 2026-06-19 — Preseason Release Candidate 1
+
+Hardening pass on the Shoot-On-The-Fly stack ahead of the season, with a real
+test suite to keep it honest. **Backward compatible** — only additions and fixes.
+
+### Fixed — SOTF solver was never exact (off-by-one in the virtual-goal iterate)
+- `AimingSolver.solve(...)` reported a `virtualGoal` that lagged the reported
+  `timeOfFlight` by one iteration, so even a perfectly aimed, perfectly sped
+  shot landed `v · Δtof` off the target — a **velocity-dependent error that
+  could never reach zero**, even in a perfect simulation. The solve now iterates
+  to a true **fixed point** (tof, distance and virtual goal mutually consistent),
+  so an ideal shot is exact by construction. A new closed-loop unit test sweeps
+  4,459 pose/velocity cases and confirms max landing error ≈ **1.3 × 10⁻¹⁴ m**.
+- `solve(...)` now **guards non-finite velocity** (a momentary pose-estimator
+  glitch falls back to a stationary solve instead of producing `NaN` aim).
+
+### Added — continuous tracking for the rest of the shooter
+- **`FlywheelMechanism.track(DoubleSupplier rps)`** and
+  **`RotationalMechanism.track(DoubleSupplier deg)`** — re-read the setpoint
+  every loop, so flywheel RPM and hood angle follow the live distance during
+  SOTF (the turret already had `track`). Closes the radial-motion gap: distance
+  is now compensated, not just bearing.
+- **`TurretMechanism.track(solution, headingDeg, yawRateDps)`** — a 3-arg
+  overload that applies the solver's **exact analytic bearing rate** (minus yaw
+  rate) as velocity feedforward, so the turret leads a moving goal even while
+  the chassis is rotating.
+- **`TurretMechanism.aimErrorDeg(solution, headingDeg)`** and
+  **`isOnTarget(solution, headingDeg, tolDeg)`** — the "barrel on target" half
+  of a shoot-while-moving readiness gate, plus a live aim error for dashboards.
+
+### Added — turret simulation
+- **`TurretMechanism` now self-simulates** (`DCMotorSim`), with optional
+  `.motorType(...)` and `.simMOI(...)` config. Turret/SOTF code now moves in the
+  WPILib simulator with no hardware — the one headline mechanism that didn't.
+
+### Added — optional goal / intent layer
+- **`frc.lib.catalyst.goal`** — `Goal` + `GoalDirector`: a thin, *completely
+  optional* "software-defined robot" layer. The driver gives an intent
+  (`director.pursue(SCORE_HIGH)`); the director drives the
+  `SuperstructureCoordinator` to the right state, runs the goal's setup work,
+  reports readiness, and hands control back to the driver via the standard
+  command-requirement model. Publishes to `/Catalyst/Goal/*`. Skip the package
+  entirely and the rest of the library is unchanged.
+
+### Added — runnable example + browser sim cockpit
+- **`example/`** — a runnable REBUILT (2026) example robot wired on the real
+  library (swerve-style drive, intake, turret, flywheel, hood, the goal layer),
+  plus a dependency-free **browser Sim Cockpit** (`localhost:5805`) that
+  visualizes the field, the live code path, the SOTF math, telemetry, and the
+  safety stack. A teaching/demo harness, not shipped robot code.
+
+### Added — test suite
+- First JUnit tests ship with the library: the SOTF closed-loop proof, solver
+  self-consistency, radial/tangential lead, NaN fallback, max-range/degenerate
+  cases, and the turret continuous-wrap resolver. Run with `./gradlew test`.
+
 ## [0.10.1-beta] — 2026-06-09
 
 ### Fixed — swerve helper commands no longer steal the drivetrain

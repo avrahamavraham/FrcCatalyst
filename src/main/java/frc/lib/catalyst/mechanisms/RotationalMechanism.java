@@ -259,6 +259,27 @@ public class RotationalMechanism extends CatalystMechanism {
         }).withName(name + ".GoTo(" + String.format("%.1f", degrees) + ")");
     }
 
+    /**
+     * Continuously track an angle that can change every loop (degrees) — e.g.
+     * a hood whose angle is interpolated from the live distance to the goal
+     * during Shoot-On-The-Fly. Unlike {@link #goTo(double)} (one fixed
+     * setpoint), the target is re-read from {@code degreesSupplier} each loop.
+     *
+     * <pre>{@code
+     * hood.setDefaultCommand(hood.track(
+     *     () -> solver.solve(drive.getPose(), drive.getFieldRelativeSpeeds())
+     *                 .hoodDegrees()));
+     * }</pre>
+     */
+    public Command track(DoubleSupplier degreesSupplier) {
+        return run(() -> {
+            setpointDegrees = MathUtil.clamp(
+                    degreesSupplier.getAsDouble(), config.minAngle, config.maxAngle);
+            motor.setMotionMagicPosition(degreesToRotations(setpointDegrees));
+            setState("Track");
+        }).withName(name + ".Track");
+    }
+
     /** Command to move to a named position. */
     public Command goTo(String positionName) {
         Double target = config.namedPositions.get(positionName);

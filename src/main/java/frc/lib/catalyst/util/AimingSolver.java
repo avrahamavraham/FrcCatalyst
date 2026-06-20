@@ -149,15 +149,40 @@ public final class AimingSolver {
         double vy = (comp != null) ? comp.conditionVelocity(fieldRelativeSpeeds.vyMetersPerSecond)
                                    : fieldRelativeSpeeds.vyMetersPerSecond;
 
-        // First pass uses the real target distance to seed the flight time.
+        // A NaN/Inf velocity (e.g. a momentary pose-estimator glitch) must never
+        // poison the aim. Fall back to a stationary solve for that axis.
+        if (!Double.isFinite(vx)) vx = 0.0;
+        if (!Double.isFinite(vy)) vy = 0.0;
+
+        // Solve the virtual-goal fixed point:  virtualGoal = goal - v * tof(|virtualGoal - robot|).
+        // The shot-time table clamps to its endpoints, so the map is a
+        // contraction and this converges quickly. We iterate to convergence
+        // (capped) rather than a fixed count, so tof, dist and virtualGoal are
+        // all mutually consistent — that is what makes an ideal shot exact and
+        // the shooter/hood lookup distance agree with the flight time.
         double dist = goal.getDistance(robotXY);
         double tof = lookup(shotTime, dist, 0.0);
 
         Translation2d virtualGoal = goal;
-        for (int i = 0; i < iterations && tof > 0.0; i++) {
+        int maxIters = Math.max(iterations, 20);
+        for (int i = 0; i < maxIters && tof > 0.0; i++) {
+            Translation2d next = new Translation2d(goal.getX() - vx * tof, goal.getY() - vy * tof);
+            double nextDist = next.getDistance(robotXY);
+            double nextTof = lookup(shotTime, nextDist, 0.0);
+            boolean converged = Math.abs(nextDist - dist) < 1e-12;
+            virtualGoal = next;
+            dist = nextDist;
+            tof = nextTof;
+            if (converged) break;
+        }
+
+        // Safety pin: if the iteration hit its cap without fully converging,
+        // re-pin the virtual goal to the reported tof so an ideal shot is still
+        // exact by construction (landing = virtualGoal + v*tof = goal). At a
+        // true fixed point this is a no-op.
+        if (tof > 0.0) {
             virtualGoal = new Translation2d(goal.getX() - vx * tof, goal.getY() - vy * tof);
             dist = virtualGoal.getDistance(robotXY);
-            tof = lookup(shotTime, dist, 0.0);
         }
 
         Translation2d aim = virtualGoal.minus(robotXY);

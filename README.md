@@ -57,7 +57,7 @@ repositories {
 }
 
 dependencies {
-    implementation "com.github.TomAs-1226:FrcCatalyst:v0.10.1-beta"
+    implementation "com.github.TomAs-1226:FrcCatalyst:v1.0.0-rc1"
 }
 ```
 </details>
@@ -97,6 +97,17 @@ operatorController.b().onTrue(elevator.goTo("STOW"));
 ```
 
 ---
+
+## What's New in v1.0.0-rc1 — Preseason Release Candidate 1
+
+The Shoot-On-The-Fly stack, hardened and proven. Backward compatible.
+
+- **Fixed a real SOTF bug:** the aiming solver's virtual-goal iteration was off-by-one, so even a *perfect* shot landed slightly off when moving — an error that scaled with speed and could never reach zero. The solve now converges to a true fixed point; a closed-loop unit test over **4,459** pose/velocity cases confirms the ideal shot lands within **1.3 × 10⁻¹⁴ m** of the target.
+- **`flywheel.track(...)` and `hood.track(...)`** — continuous setpoint tracking so RPM and hood follow the live distance during SOTF (closes the radial-motion gap; the turret already had `track`).
+- **`turret.track(solution, heading, yawRate)`** — exact analytic-rate velocity feedforward, so the turret leads a moving goal even while the chassis spins. Plus `turret.aimErrorDeg(...)` / `isOnTarget(...)` for "ready to shoot" gating.
+- **TurretMechanism now self-simulates** (`DCMotorSim`) — turret/SOTF code moves in the WPILib simulator with no hardware.
+- **First JUnit test suite ships with the library** (`./gradlew test`): SOTF proof, solver self-consistency, lead geometry, NaN/edge cases, and turret continuous-wrap.
+- Velocity-aware **NaN guard** in the solver so a pose glitch can't poison the aim.
 
 ## What's New in v0.10.1-beta
 

@@ -10,6 +10,8 @@ import frc.lib.catalyst.hardware.CatalystMotor;
 import frc.lib.catalyst.hardware.CatalystMotor.FollowerSpec;
 import frc.lib.catalyst.hardware.MotorType;
 
+import java.util.function.DoubleSupplier;
+
 import java.util.ArrayList;
 import java.util.List;
 import frc.lib.catalyst.io.FlywheelMechanismInputs;
@@ -232,6 +234,38 @@ public class FlywheelMechanism extends CatalystMechanism {
             secondarySetpointRPS = 0;
             setState("Idle");
         }).withName(name + ".SpinUp(" + String.format("%.0f/%.0f", primaryRPS, secondaryRPS) + ")");
+    }
+
+    /**
+     * Continuously track a target speed that can change every loop — the
+     * Shoot-On-The-Fly use case, where the required RPM varies with distance
+     * to the goal. Unlike {@link #spinUp(double)} (which captures one fixed
+     * speed), the setpoint is re-read from {@code velocityRpsSupplier} each
+     * loop, so a distance-interpolated speed is applied live.
+     *
+     * <pre>{@code
+     * shooter.setDefaultCommand(shooter.track(
+     *     () -> solver.solve(drive.getPose(), drive.getFieldRelativeSpeeds())
+     *                 .shooterRpm() / 60.0));   // RPM -> RPS
+     * }</pre>
+     */
+    public Command track(DoubleSupplier velocityRpsSupplier) {
+        return run(() -> {
+            double v = velocityRpsSupplier.getAsDouble();
+            primarySetpointRPS = v;
+            secondarySetpointRPS = v;
+            primaryMotor.setVelocity(v);
+            if (secondaryMotor != null) {
+                secondaryMotor.setVelocity(v);
+            }
+            setState("Track");
+        }).finallyDo(() -> {
+            primaryMotor.stop();
+            if (secondaryMotor != null) secondaryMotor.stop();
+            primarySetpointRPS = 0;
+            secondarySetpointRPS = 0;
+            setState("Idle");
+        }).withName(name + ".Track");
     }
 
     /** Command to spin up and wait until at speed. */

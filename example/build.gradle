@@ -1,0 +1,98 @@
+plugins {
+    id "java"
+    id "edu.wpi.first.GradleRIO" version "2026.2.1"
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+def ROBOT_MAIN_CLASS = "frc.robot.Main"
+
+// Extra repositories so the FrcCatalyst artifact (mavenLocal) and its
+// transitive vendor dependencies (CTRE, PathPlanner, PhotonVision) resolve.
+repositories {
+    mavenLocal()
+    maven { url "https://maven.ctr-electronics.com/release/" }
+    maven { url "https://3015rangerrobotics.github.io/pathplannerlib/repo" }
+    // PhotonVision repo intentionally omitted — its server can be down, and we
+    // exclude the photon dependency below, so it must not be consulted for
+    // resolving core WPILib natives.
+    mavenCentral()
+}
+
+deploy {
+    targets {
+        roborio(getTargetTypeClass('RoboRIO')) {
+            team = project.frc.getTeamNumber()
+            debug = project.frc.getDebugOrDefault(false)
+
+            artifacts {
+                frcJava(getArtifactTypeClass('FRCJavaArtifact')) {}
+
+                frcStaticFileDeploy(getArtifactTypeClass('FileTreeArtifact')) {
+                    files = project.fileTree('src/main/deploy')
+                    directory = '/home/lvuser/deploy'
+                    deleteOldFiles = false
+                }
+            }
+        }
+    }
+}
+
+def deployArtifact = deploy.targets.roborio.artifacts.frcJava
+
+wpi.java.debugJni = false
+
+def includeDesktopSupport = true
+
+dependencies {
+    annotationProcessor wpi.java.deps.wpilibAnnotations()
+    implementation wpi.java.deps.wpilib()
+    nativeDebug wpi.java.deps.wpilibJniDebug(wpi.platforms.desktop)
+    simulationDebug wpi.sim.enableDebug()
+    nativeRelease wpi.java.deps.wpilibJniRelease(wpi.platforms.desktop)
+    simulationRelease wpi.sim.enableRelease()
+
+    implementation wpi.java.vendor.java()
+    nativeDebug wpi.java.vendor.jniDebug(wpi.platforms.desktop)
+    simulationDebug wpi.java.vendor.jniDebug(wpi.platforms.desktop)
+    nativeRelease wpi.java.vendor.jniRelease(wpi.platforms.desktop)
+    simulationRelease wpi.java.vendor.jniRelease(wpi.platforms.desktop)
+
+    // FrcCatalyst (resolved from mavenLocal — run `./gradlew publishToMavenLocal`
+    // in the library root first). PhotonVision is excluded: this example never
+    // instantiates VisionSubsystem, so we don't need the photon artifacts (and
+    // their maven server can be flaky).
+    implementation("com.frccatalyst:FrcCatalyst:1.0.0-rc1") {
+        exclude group: 'org.photonvision'
+    }
+
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.1'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+    useJUnitPlatform()
+    systemProperty 'junit.jupiter.extensions.autodetection.enabled', 'true'
+}
+
+// The browser "Sim Cockpit" (http://localhost:5805) is the interface for this
+// example, so the stock GUI is left off by default. Flip this to true if you
+// want the raw WPILib Simulation GUI as well.
+wpi.sim.addGui().defaultEnabled = false
+
+jar {
+    from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
+    from sourceSets.main.allSource
+    manifest edu.wpi.first.gradlerio.GradleRIOPlugin.javaManifest(ROBOT_MAIN_CLASS)
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+wpi.java.configureExecutableTasks(jar)
+wpi.java.configureTestTasks(test)
+
+tasks.withType(JavaCompile) {
+    options.compilerArgs.add '-XDstringConcat=inline'
+}

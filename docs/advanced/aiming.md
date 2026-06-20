@@ -121,13 +121,24 @@ a match video or the shooter's at-speed-to-impact delay.
 ### Wiring it to the turret
 
 ```java
-turret.setDefaultCommand(turret.track(
-    () -> solver.solve(drive.getPose(), drive.getFieldRelativeSpeeds()),
-    () -> drive.getHeading().getDegrees()));
+// Recompute the SOTF solution each loop:
+Supplier<AimingSolver.Solution> sol =
+    () -> solver.solve(drive.getPose(), drive.getFieldRelativeSpeeds());
 
-// Shooter + hood read the same solution:
-shooter.setDefaultCommand(shooter.spinUpCommand(
-    () -> solver.solve(drive.getPose(), drive.getFieldRelativeSpeeds()).shooterRpm()));
+// Turret leads the moving goal with exact analytic-rate feedforward. Pass the
+// chassis yaw rate too, so it stays locked while you ALSO rotate:
+turret.setDefaultCommand(turret.track(
+    sol,
+    () -> drive.getHeading().getDegrees(),
+    () -> Math.toDegrees(drive.getChassisSpeeds().omegaRadiansPerSecond)));
+
+// Flywheel RPM and hood angle follow the live distance every loop (v1.0):
+shooter.setDefaultCommand(shooter.track(() -> sol.get().shooterRpm() / 60.0));  // RPM -> RPS
+hood.setDefaultCommand(hood.track(() -> sol.get().hoodDegrees()));
+
+// "Ready to shoot" — barrel on target AND wheel at speed AND in range:
+boolean ready = turret.isOnTarget(sol.get(), drive.getHeading().getDegrees(), 2.0)
+             && shooter.atSpeed();
 ```
 
 > Field-relative speeds matter. If your drive only gives robot-relative
@@ -218,14 +229,24 @@ current dialed-in bias.
 ## Turret velocity feedforward
 
 `TurretMechanism.track(...)` doesn't just chase the solution a loop
-behind — it differentiates the resolved command and applies a `kV`
-voltage feedforward so the turret *leads* a moving goal. This is
-automatic once `kV` is set in the config (from [SysId](sysid.html)). The
-feedforward is skipped on the loop where an unwrap makes the command
-jump, and clamped to ±2 V so it assists rather than dominates the PID.
+behind — it applies a `kV` voltage feedforward so the turret *leads* a
+moving goal. As of **v1.0** the tracking path uses the solver's **exact
+analytic field-bearing rate** (`Solution.turretFieldRateDps()`) rather
+than a numeric derivative of the command, so the feedforward has no
+finite-difference lag or noise. Set `kV` from [SysId](sysid.html); the
+feedforward is skipped on an unwrap loop and clamped to ±2 V so it
+assists rather than dominates the PID.
 
-`Solution.turretFieldRateDps()` exposes the analytic field-bearing rate
-if you want to do your own feedforward or log the tracking rate.
+If the chassis **rotates while shooting**, use the 3-arg overload
+`track(solution, headingDeg, yawRateDps)`. The turret's robot-relative
+rate is `fieldRate − yawRate`, so feeding the yaw rate keeps the
+feedforward exact while you spin — the turret counter-rotates and stays
+locked on the goal.
+
+The flywheel and hood get the same continuous treatment:
+`FlywheelMechanism.track(DoubleSupplier rps)` and
+`RotationalMechanism.track(DoubleSupplier deg)` re-read their setpoints
+every loop, so RPM and hood angle follow the live distance during SOTF.
 
 ## Latency
 

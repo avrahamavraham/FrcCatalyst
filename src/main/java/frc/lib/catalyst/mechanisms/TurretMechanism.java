@@ -3,10 +3,14 @@ package frc.lib.catalyst.mechanisms;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.system.plant.LinearSystemId;
+import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.simulation.DCMotorSim;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.lib.catalyst.hardware.CatalystMotor;
+import frc.lib.catalyst.hardware.MotorType;
 import frc.lib.catalyst.io.TurretMechanismInputs;
 import frc.lib.catalyst.util.AimingSolver;
 import frc.lib.catalyst.util.HealthCheck;
@@ -65,6 +69,9 @@ public class TurretMechanism extends CatalystMechanism {
 
     private final TurretMechanismInputs inputs = new TurretMechanismInputs();
 
+    // Simulation (null on a real robot).
+    private DCMotorSim sim;
+
     private double setpointDegrees = 0.0;
     private double aimFieldAngleDegrees = Double.NaN;
     private boolean unwrapping = false;
@@ -115,7 +122,25 @@ public class TurretMechanism extends CatalystMechanism {
                 config.motionMagicAcceleration,
                 config.motionMagicJerk);
 
+        if (RobotBase.isSimulation()) {
+            sim = new DCMotorSim(
+                    LinearSystemId.createDCMotorSystem(
+                            config.motorType.getDCMotor(1), config.simMOI, config.gearRatio),
+                    config.motorType.getDCMotor(1));
+        }
+
         registerHealthChecks();
+    }
+
+    @Override
+    public void simulationPeriodic() {
+        if (sim != null) {
+            var simState = motor.getTalonFX().getSimState();
+            sim.setInputVoltage(simState.getMotorVoltage());
+            sim.update(0.02);
+            simState.setRawRotorPosition(sim.getAngularPositionRotations() * config.gearRatio);
+            simState.setRotorVelocity(sim.getAngularVelocityRPM() / 60.0 * config.gearRatio);
+        }
     }
 
     private void registerHealthChecks() {
@@ -216,6 +241,30 @@ public class TurretMechanism extends CatalystMechanism {
         motor.setMotionMagicPosition(resolved / 360.0, ffVolts);
     }
 
+    /**
+     * Command a resolved angle with an <em>explicit</em> velocity feedforward
+     * (degrees/second, robot-relative) instead of differentiating the command.
+     * Preferred for {@link #track}, where {@link AimingSolver} hands back an
+     * exact analytic bearing rate — no finite-difference lag or noise.
+     */
+    private void commandResolved(double desiredRobotRelativeDeg, double ffDegPerSec) {
+        double current = getAngle();
+        double resolved = resolveTurretAngle(
+                desiredRobotRelativeDeg, current, config.minAngle, config.maxAngle);
+        double naive = MathUtil.inputModulus(desiredRobotRelativeDeg, current - 180, current + 180);
+        unwrapping = Math.abs(resolved - naive) > 180.0;
+        setpointDegrees = resolved;
+
+        double ffVolts = 0.0;
+        if (config.kV > 0 && !unwrapping && !Double.isNaN(ffDegPerSec)) {
+            ffVolts = MathUtil.clamp(config.kV * (ffDegPerSec / 360.0), -2.0, 2.0);
+        }
+        lastResolvedDeg = resolved;
+        lastCommandTs = Timer.getFPGATimestamp();
+
+        motor.setMotionMagicPosition(resolved / 360.0, ffVolts);
+    }
+
     // ============================================================
     //                       GETTERS
     // ============================================================
@@ -248,6 +297,30 @@ public class TurretMechanism extends CatalystMechanism {
     /** True if the last aim resolved by taking the long way around the limits. */
     public boolean isUnwrapping() {
         return unwrapping;
+    }
+
+    /**
+     * Live aiming error against a Shoot-On-The-Fly {@link AimingSolver.Solution}:
+     * how far (degrees) the bore is from the solved field bearing right now.
+     * Handy for dashboards and as the basis of a custom "ready" gate.
+     *
+     * @param solution        the latest solve
+     * @param robotHeadingDeg current robot heading (degrees)
+     */
+    public double aimErrorDeg(AimingSolver.Solution solution, double robotHeadingDeg) {
+        if (solution == null) return Double.NaN;
+        double targetRobotRel = solution.turretFieldAngleDeg() - robotHeadingDeg;
+        return MathUtil.inputModulus(targetRobotRel - getAngle(), -180.0, 180.0);
+    }
+
+    /**
+     * Whether the turret is aimed at the solution within {@code toleranceDeg} —
+     * the "is the barrel on target" half of a shoot-while-moving readiness check
+     * (pair with {@code shooter.atSpeed()} and {@code solution.feasible()}).
+     */
+    public boolean isOnTarget(AimingSolver.Solution solution, double robotHeadingDeg, double toleranceDeg) {
+        return solution != null && solution.feasible()
+                && Math.abs(aimErrorDeg(solution, robotHeadingDeg)) <= toleranceDeg;
     }
 
     public CatalystMotor getMotor() {
@@ -318,6 +391,24 @@ public class TurretMechanism extends CatalystMechanism {
      * @param robotHeadingDeg robot heading supplier (degrees)
      */
     public Command track(Supplier<AimingSolver.Solution> solution, DoubleSupplier robotHeadingDeg) {
+        return track(solution, robotHeadingDeg, () -> 0.0);
+    }
+
+    /**
+     * Full Shoot-On-The-Fly tracking for a chassis that may be <b>translating
+     * and rotating</b> at once. The turret's robot-relative bearing is
+     * {@code fieldAngle - heading}, so its rate is
+     * {@code fieldBearingRate - yawRate}. Passing the live yaw rate keeps the
+     * velocity feedforward exact while the robot spins; with a swerve this is
+     * {@code () -> Math.toDegrees(drive.getChassisSpeeds().omegaRadiansPerSecond)}.
+     *
+     * @param solution         supplier of the latest solve
+     * @param robotHeadingDeg  robot heading supplier (degrees)
+     * @param robotYawRateDps  robot yaw rate supplier (degrees/second)
+     */
+    public Command track(Supplier<AimingSolver.Solution> solution,
+                         DoubleSupplier robotHeadingDeg,
+                         DoubleSupplier robotYawRateDps) {
         return run(() -> {
             AimingSolver.Solution s = solution.get();
             if (s == null || !s.feasible()) {
@@ -327,7 +418,11 @@ public class TurretMechanism extends CatalystMechanism {
                 return;
             }
             aimFieldAngleDegrees = s.turretFieldAngleDeg();
-            commandResolved(s.turretFieldAngleDeg() - robotHeadingDeg.getAsDouble());
+            // Exact velocity feedforward from the solver's analytic field-bearing
+            // rate, converted to the robot-relative frame by removing the yaw
+            // rate, so the turret leads a moving goal instead of lagging it.
+            double ffRobotRelDps = s.turretFieldRateDps() - robotYawRateDps.getAsDouble();
+            commandResolved(s.turretFieldAngleDeg() - robotHeadingDeg.getAsDouble(), ffRobotRelDps);
             setState("Track");
         }).withName(name + ".Track");
     }
@@ -438,6 +533,8 @@ public class TurretMechanism extends CatalystMechanism {
         final boolean visionInverted;
         final int cancoderId;
         final double cancoderRotorToSensorRatio;
+        final MotorType motorType;
+        final double simMOI;
 
         private Config(Builder b) {
             this.name = b.name;
@@ -461,6 +558,8 @@ public class TurretMechanism extends CatalystMechanism {
             this.visionInverted = b.visionInverted;
             this.cancoderId = b.cancoderId;
             this.cancoderRotorToSensorRatio = b.cancoderRotorToSensorRatio;
+            this.motorType = b.motorType;
+            this.simMOI = b.simMOI;
         }
 
         public static Builder builder() { return new Builder(); }
@@ -487,6 +586,8 @@ public class TurretMechanism extends CatalystMechanism {
             private boolean visionInverted = false;
             private int cancoderId = -1;
             private double cancoderRotorToSensorRatio = 1.0;
+            private MotorType motorType = MotorType.KRAKEN_X60;
+            private double simMOI = 0.02;
 
             public Builder name(String name) { this.name = name; return this; }
             public Builder motor(int canId) { this.motorCanId = canId; return this; }
@@ -539,6 +640,12 @@ public class TurretMechanism extends CatalystMechanism {
              * @param canId               CANcoder CAN id
              * @param rotorToSensorRatio  motor rotor rotations per CANcoder rotation
              */
+            /** Motor model used for simulation physics (default Kraken X60). */
+            public Builder motorType(MotorType type) { this.motorType = type; return this; }
+
+            /** Rotational inertia of the turret about its axis, kg·m² (sim only, default 0.02). */
+            public Builder simMOI(double kgm2) { this.simMOI = kgm2; return this; }
+
             public Builder cancoder(int canId, double rotorToSensorRatio) {
                 this.cancoderId = canId;
                 this.cancoderRotorToSensorRatio = rotorToSensorRatio;
