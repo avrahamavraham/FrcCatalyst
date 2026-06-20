@@ -75,6 +75,7 @@
           <option>Kraken X60</option><option>Kraken X44</option><option>Falcon 500</option>
           <option>NEO</option><option>NEO Vortex</option><option>NEO 550</option><option>Minion</option>
           <option>CANcoder</option><option>Pigeon 2</option><option>CANdi</option><option>CANdle</option>
+          <option>PH (Pneumatic Hub)</option><option>PCM</option><option>Other</option>
         </select>
       </div>
       <div><label>CAN bus</label><select id="dBus"><option>rio</option><option>canivore</option></select></div>
@@ -106,22 +107,33 @@
     </div>
     <div class="card">
       <h2>Channel &amp; wire schedule</h2>
-      <table><thead><tr><th>Device</th><th>Type</th><th>PDU channel</th><th>Breaker</th><th>Wire</th><th>Bus</th></tr></thead>
+      <table><thead><tr><th>Device</th><th>Type</th><th>Channel</th><th>Breaker</th><th>Typ. A</th><th>Wire</th><th>Bus</th></tr></thead>
         <tbody id="tbody"></tbody></table>
+    </div>
+    <div class="card">
+      <h2>Bill of materials <span class="h2sub" style="color:var(--muted);font-weight:600;text-transform:none;letter-spacing:0">· estimated</span></h2>
+      <table><thead><tr><th>Qty</th><th>Item</th><th>Notes</th></tr></thead><tbody id="bom"></tbody></table>
+      <button id="bomCsv" style="margin-top:10px">⬇ Export BOM (CSV)</button>
     </div>
   </div>
 </main>
 <script>
 const $=id=>document.getElementById(id);
 // Electrical spec per device type (FRC best practice).
+// br = recommended breaker (A), g = wire gauge, pwr = needs a power channel,
+// typ = typical running current (A, not stall), pneu = pneumatic hub, sol = solenoid channels.
 const SPEC={
-  'Kraken X60':{br:40,g:'12 AWG',pwr:true},'Kraken X44':{br:40,g:'12 AWG',pwr:true},
-  'Falcon 500':{br:40,g:'12 AWG',pwr:true},'NEO':{br:40,g:'12 AWG',pwr:true},
-  'NEO Vortex':{br:40,g:'12 AWG',pwr:true},'NEO 550':{br:30,g:'14 AWG',pwr:true},
-  'Minion':{br:40,g:'12 AWG',pwr:true},
-  'CANcoder':{br:0,g:'CAN',pwr:false},'Pigeon 2':{br:0,g:'CAN',pwr:false},'CANdi':{br:0,g:'CAN',pwr:false},
-  'CANdle':{br:20,g:'18 AWG',pwr:true},'Other':{br:20,g:'—',pwr:true},
+  'Kraken X60':{br:40,g:'12 AWG',pwr:true,typ:12},'Kraken X44':{br:40,g:'12 AWG',pwr:true,typ:8},
+  'Falcon 500':{br:40,g:'12 AWG',pwr:true,typ:12},'NEO':{br:40,g:'12 AWG',pwr:true,typ:12},
+  'NEO Vortex':{br:40,g:'12 AWG',pwr:true,typ:13},'NEO 550':{br:30,g:'14 AWG',pwr:true,typ:6},
+  'Minion':{br:40,g:'12 AWG',pwr:true,typ:11},
+  'CANcoder':{br:0,g:'CAN',pwr:false,typ:0.1},'Pigeon 2':{br:0,g:'CAN',pwr:false,typ:0.1},'CANdi':{br:0,g:'CAN',pwr:false,typ:0.1},
+  'CANdle':{br:20,g:'18 AWG',pwr:true,typ:2},
+  'PH (Pneumatic Hub)':{br:20,g:'14 AWG',pwr:true,typ:1,pneu:true,sol:16},
+  'PCM':{br:20,g:'14 AWG',pwr:true,typ:1,pneu:true,sol:8},
+  'Other':{br:20,g:'—',pwr:true,typ:5},
 };
+const COMPRESSOR_TYP=11;  // running current of a typical FRC compressor (through the PH/PCM)
 let devices=[], pdu='PDH';
 const KEY='catalyst-wiring-v1', CANKEY='catalyst-canids-v1';
 
@@ -165,6 +177,7 @@ function render(){
   buildSchedule();
   drawDiagram();
   buildRecs();
+  buildBom();
 }
 function del(i){devices.splice(i,1);render()}
 function esc(t){return(t+'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
@@ -181,16 +194,19 @@ function buildSchedule(){
   });
   const t=$('tbody'); t.innerHTML='';
   // system devices (always present)
-  t.innerHTML += sysRow('RoboRIO','controller','PDH reg 12V/10A','—','18 AWG','—');
-  t.innerHTML += sysRow('Radio (REV/VH-109)','radio','PDH low-current','15 A','18 AWG','Ethernet');
+  t.innerHTML += sysRow('RoboRIO','controller','PDH reg 12V/10A','—',2,'18 AWG','—');
+  t.innerHTML += sysRow('Radio (REV/VH-109)','radio','PDH low-current','15 A',1,'18 AWG','Ethernet');
   assigned.forEach(a=>{ t.innerHTML += `<tr><td>${esc(a.name)}</td><td>${a.type}</td><td class="m">${a.chan}</td>`
-    +`<td class="m">${a.spec.br?a.spec.br+' A':'—'}</td><td class="m">${a.spec.g}</td><td class="m">${a.bus}</td></tr>`; });
+    +`<td class="m">${a.spec.br?a.spec.br+' A':'—'}</td><td class="m">${a.spec.typ}</td><td class="m">${a.spec.g}</td><td class="m">${a.bus}</td></tr>`; });
+  // compressor (downstream of the pneumatic hub)
+  if(hasPneu()) t.innerHTML += sysRow('Compressor','pneumatic','PH compressor port','—',COMPRESSOR_TYP,'14 AWG','—');
   // overflow warning
   const overHi = hi>ch.hi, overLo = lo>ch.lo;
   $('warn').innerHTML = (overHi||overLo)
     ? `<div class="warnbar">⚠ ${overHi?hi+' devices need 40A channels but '+pdu+' has only '+ch.hi+'. ':''}${overLo?lo+' low-current devices but only '+ch.lo+' channels. ':''}Consider a second PDU or a MPM/MXP breakout.</div>` : '';
 }
-function sysRow(n,t,c,b,g,bus){return `<tr><td>${n}</td><td>${t}</td><td class="m">${c}</td><td class="m">${b}</td><td class="m">${g}</td><td class="m">${bus}</td></tr>`;}
+function sysRow(n,t,c,b,typ,g,bus){return `<tr><td>${n}</td><td>${t}</td><td class="m">${c}</td><td class="m">${b}</td><td class="m">${typ}</td><td class="m">${g}</td><td class="m">${bus}</td></tr>`;}
+function hasPneu(){return devices.some(d=>(SPEC[d.type]||{}).pneu);}
 
 function buildRecs(){
   const pwr=assigned.filter(a=>a.spec.pwr);
@@ -201,15 +217,49 @@ function buildRecs(){
   r.push(['Breaker sizing','Krakens / Falcons / NEOs → <b>40 A</b>; NEO 550 → <b>30 A</b>; CANdle → <b>20 A</b>. Snap-action breakers in the PDH high-current bays.']);
   r.push(['Wire gauge','40 A motor runs → <b>12 AWG</b>; 30 A → <b>14 AWG</b>; RoboRIO / radio / LEDs → <b>18 AWG</b>.']);
   r.push(['CAN bus','Daisy-chain CANH/CANL through all '+canCount+' device(s). <b>120 Ω termination at BOTH ends</b> — the RoboRIO has one built in; set the PDH switch (or add a resistor) at the far end. Keep CANivore on its own bus if present.']);
-  r.push(['Sum of breakers','~<b>'+totalBr+' A</b> across '+pwr.length+' powered device(s). The 120 A main is fine — not every motor pulls max at once — but watch sustained current on heavy mechanisms.']);
+  const typSum=pwr.reduce((s,a)=>s+(a.spec.typ||0),0)+3+(hasPneu()?COMPRESSOR_TYP:0);
+  const heavy=typSum>110;
+  r.push(['Estimated current','~<b>'+typSum.toFixed(0)+' A</b> typical running draw (motors at active-driving average + RoboRIO + radio'+(hasPneu()?' + compressor':'')+'). Peak if every breaker tripped at once would be <b>'+totalBr+' A</b>, but motors never all stall together. '+(heavy?'⚠ That running estimate is high — the 120 A main is time-delayed so brief bursts are fine, but watch sustained current and battery sag on the heaviest mechanisms.':'The 120 A main + an 18 Ah battery carry this comfortably.')]);
+  if(hasPneu()) r.push(['Pneumatics','Compressor wires to the Pneumatic Hub compressor port (not the PDU). Add an analog pressure transducer (PH) or pressure switch (PCM); solenoids plug into the hub\'s channels.']);
   r.push(['Colors','Red = +12 V, black = ground, twisted yellow/green = CAN. Label both ends of every run.']);
   $('recs').innerHTML=r.map(([k,v])=>`<div class="r"><b style="min-width:120px">${k}</b><span>${v}</span></div>`).join('');
 }
 
+let bomRows=[];
+function buildBom(){
+  const pwr=assigned.filter(a=>a.spec.pwr);
+  const brk={}; pwr.forEach(a=>{if(a.spec.br) brk[a.spec.br]=(brk[a.spec.br]||0)+1;});
+  const gauge={}; pwr.forEach(a=>{const g=a.spec.g; if(g&&g!=='—'&&g!=='CAN') gauge[g]=(gauge[g]||0)+1;});
+  const canCount=devices.length;
+  const rows=[];
+  rows.push([1, pdu==='PDH'?'REV Power Distribution Hub':'CTRE Power Distribution Panel','CAN-connected; fed from the 120 A main breaker']);
+  rows.push([1,'120 A main breaker','Battery (+) → PDU, with a breaker cover']);
+  rows.push([2,'12 V 18 Ah SLA battery','One on the robot, one charging']);
+  rows.push([2,'Anderson SB-50 connector','Battery + main breaker leads (6 AWG)']);
+  Object.keys(brk).sort((a,b)=>b-a).forEach(sz=>rows.push([brk[sz], sz+' A snap-action breaker','For the '+sz+' A motor channels']));
+  Object.keys(gauge).forEach(g=>{const runs=gauge[g]; rows.push([Math.ceil(runs*12)+' ft', g+' wire (red + black)', runs+' run(s) ≈ 6 ft each, ×2 for +/−']);});
+  rows.push([Math.ceil((canCount+2)*3)+' ft','CAN wire (twisted pair)','Daisy-chain through '+canCount+' device(s) + RoboRIO']);
+  rows.push([1,'120 Ω CAN terminator','Far end of the bus (RoboRIO has one built in)']);
+  rows.push([Math.ceil((canCount+pwr.length)*2),'Ferrules / Wago connectors','Both ends of every power + CAN run']);
+  if(hasPneu()){
+    const sol=devices.filter(d=>(SPEC[d.type]||{}).pneu).reduce((s,d)=>s+((SPEC[d.type]||{}).sol||0),0);
+    rows.push([1,'Compressor','12 V → PH/PCM compressor port']);
+    rows.push([1,'Pressure transducer / switch','PH analog port (or PCM pressure switch)']);
+    rows.push(['≤'+sol,'Solenoid valves','Hub has '+sol+' channels — populate as needed']);
+    rows.push(['—','Pneumatic tubing + fittings','Compressor → tank → regulator → solenoids']);
+  }
+  bomRows=rows;
+  $('bom').innerHTML=rows.map(([q,i,n])=>`<tr><td class="m">${q}</td><td>${esc(i)}</td><td style="color:var(--muted)">${esc(n)}</td></tr>`).join('');
+}
+$('bomCsv').onclick=()=>{
+  const csv='Qty,Item,Notes\n'+bomRows.map(r=>r.map(c=>`"${(''+c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='catalyst-wiring-bom.csv';a.click();
+};
+
 function drawDiagram(){
   const pwr=assigned.filter(a=>a.spec.pwr);
   const sys=[{name:'RoboRIO',col:'var(--reg)'},{name:'Radio',col:'var(--reg)'}];
-  const rows=sys.length+pwr.length;
+  const rows=sys.length+pwr.length+(hasPneu()?1:0);
   const rowH=40, top=70, W=760, H=Math.max(420, top+rows*rowH+40);
   const pduX=250, pduY=top, pduH=rows*rowH+10, devX=470;
   const canX=W-26;
@@ -245,6 +295,7 @@ function drawDiagram(){
   drawRow('RoboRIO','reg 12V · CAN','var(--reg)',true,true);
   drawRow('Radio','PoE / 12V','var(--reg)',false,true);
   pwr.forEach(a=>{ const isCan=true; drawRow(a.name.slice(0,18),a.spec.br+'A · '+a.spec.g+' · '+a.chan,'var(--pwr)',isCan,false); });
+  if(hasPneu()) drawRow('Compressor','via PH port · '+COMPRESSOR_TYP+'A','var(--pwr)',false,false);
   // CAN-only sensors (no power row) — tap onto rail with a small node list
   const canOnly=assigned.filter(a=>!a.spec.pwr);
   if(canOnly.length){ s+=`<text x="${devX}" y="${y+22}" font-family="ui-sans-serif" font-size="11" fill="#9aa3c4">CAN-only: ${canOnly.map(a=>esc(a.name)).join(', ').slice(0,60)}</text>`;
