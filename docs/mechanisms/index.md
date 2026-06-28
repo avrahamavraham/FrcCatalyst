@@ -42,6 +42,72 @@ FrcCatalyst provides eight generic mechanism types that cover virtually every FR
 | [DifferentialWristMechanism](diffwrist) | Diffy wrists (2-motor pitch+roll) | Degrees (pitch, roll) | Phoenix-6 native differential Motion Magic |
 | [PneumaticMechanism](pneumatic) | Solenoids / pistons | FORWARD / REVERSE / OFF | DoubleSolenoid + optional pressure gate |
 
+## Self-describing & simulated
+
+New in rc3, every mechanism describes itself and runs real physics in simulation.
+
+### Every mechanism implements `describe()`
+
+Each mechanism implements `describe()`, which returns a `MechanismView` snapshot
+of its live state (name, kind, value, unit, setpoint, range, velocity, current,
+and a map of kind-specific extras). That snapshot is what powers the generic
+[SimDashboard](../advanced/simulation.html): the dashboard reads `describe()` and
+renders a fitting widget for each mechanism without knowing its concrete type.
+`Double.NaN` is the universal "not applicable" value, so a flywheel can leave
+`min`/`max` unset and a claw can leave `value` unset.
+
+The base `CatalystMechanism.describe()` returns a `"generic"` view, and every
+built-in mechanism overrides it with the right kind and units. A team that
+subclasses a mechanism still shows up on the dashboard for free, and can
+override `describe()` to surface its own state:
+
+```java
+@Override
+public MechanismView describe() {
+    return MechanismView.of(getMechanismName(), "rotational")
+        .value(getAngle(), "deg")
+        .setpoint(getTargetAngle())
+        .range(-90, 90)
+        .velocity(getVelocity())
+        .current(getCurrent())
+        .extra("homed", isHomed())
+        .build();
+}
+```
+
+### Real physics in simulation
+
+All built-in mechanisms run accurate WPILib physics models in simulation. In
+rc3, `RollerMechanism`, `ClawMechanism`, `WinchMechanism`, and
+`DifferentialWristMechanism` gained `simulationPeriodic()` models, joining the
+mechanisms that already simulated (Linear, Rotational, Flywheel, Turret):
+
+- **RollerMechanism** uses a `FlywheelSim`.
+- **ClawMechanism** uses a `DCMotorSim`.
+- **WinchMechanism** uses an `ElevatorSim` when a spool radius is configured,
+  otherwise a `DCMotorSim`.
+- **DifferentialWristMechanism** uses two `DCMotorSim` models (one per axis).
+- **PneumaticMechanism** has no continuous position, so its `describe()` is
+  cosmetic and there is no physics model.
+
+### Sim-only helpers
+
+A few inputs exist purely to drive the simulation models. They are no-ops or
+ignored on a real robot, where state comes from real sensors:
+
+- `RollerMechanism.setSimHasPiece(boolean)` and
+  `ClawMechanism.setSimHasPiece(boolean)` force the simulated game-piece state.
+  A flywheel or DC-motor model will not naturally stall against a virtual game
+  piece, so this lets a dashboard toggle simulate intaking and scoring. Both
+  only take effect under `RobotBase.isSimulation()`; on a real robot detection
+  still comes from the beam break or stall logic.
+- `WinchMechanism.Config.builder().loadMass(double kg)` sets the mass the winch
+  lifts in the sim model (default `6.0` kg). Used only by the simulation, ignored
+  on a real robot.
+- `DifferentialWristMechanism.Config.builder().momentOfInertia(double kgMetersSquared)`
+  sets the per-axis moment of inertia for the sim model (default `0.004` kg m^2).
+  Used only by the simulation, ignored on a real robot.
+
 ## DifferentialWristMechanism
 
 A two-motor differential wrist (a.k.a. "diffy wrist") where sum of motor rotations
@@ -250,7 +316,7 @@ In addition to the standard `intake()` and `eject()` commands, `RollerMechanism`
 intake.intakeWithRamp(1.5); // ramp over 1.5 seconds
 
 // Pulsed operation for unjamming
-intake.pulse(0.8, 0.15, 0.1); // speed, onTime, offTime
+intake.pulse(0.15, 0.1, 0.8); // onTime (s), offTime (s), speed
 
 // Voltage-based feed for battery-independent consistency
 intake.feedVoltage(6.0); // apply 6V

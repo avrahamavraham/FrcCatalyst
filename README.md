@@ -32,6 +32,7 @@
 | Elevator with gravity FF | ~150 lines | **8 lines** |
 | Swerve + PathPlanner + Vision | ~400 lines | **15 lines** |
 | Mechanism with sim + telemetry | Build it yourself | **Built-in** |
+| Browser sim cockpit for any mechanism | Hand-write per robot | **Generic `SimDashboard`** |
 | Safe temperature cutoffs | Manual | **Automatic** |
 | Limit switch auto-zeroing | Manual wiring | **One builder call** |
 
@@ -57,7 +58,7 @@ repositories {
 }
 
 dependencies {
-    implementation "com.github.TomAs-1226:FrcCatalyst:v1.0.0-rc2"
+    implementation "com.github.TomAs-1226:FrcCatalyst:v1.0.0-rc3"
 }
 ```
 </details>
@@ -97,6 +98,13 @@ operatorController.b().onTrue(elevator.goTo("STOW"));
 ```
 
 ---
+
+## What's New in v1.0.0-rc3: Configurable simulation
+
+- **`SimDashboard`** (`frc.lib.catalyst.sim.SimDashboard`): a generic, dependency-free simulation cockpit. Register any mechanism with `dash.add(...)` and it renders a fitting live widget from that mechanism's `describe()`, plus opt-in `.button()` / `.command()` / `.slider()` / `.toggle()` controls. Browser input is queued and run on the main thread, and `start()` / `update()` no-op off simulation, so the same calls are safe to leave in real robot code. Default port 5805.
+- **Self-describing mechanisms**: every mechanism now implements `describe()`, returning a uniform `MechanismView` snapshot, so the dashboard (or your own tooling) can read its state without knowing its concrete type.
+- **Real sim for four more mechanisms**: Roller, Claw, Winch and Differential Wrist now run physics in simulation (`FlywheelSim` / `DCMotorSim` / `ElevatorSim`), joining the rest. New sim-only helpers: `setSimHasPiece(boolean)` on Roller and Claw, and the `loadMass` / `momentOfInertia` builder fields.
+- **`MechanismShowcase` example**: drives one of every mechanism kind through a `SimDashboard` on port 5806, side by side with the game cockpit on 5805.
 
 ## What's New in v1.0.0-rc2
 

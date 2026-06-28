@@ -269,6 +269,40 @@ shooter.spinUp(rps);
 
 ---
 
+## Mechanism Lab: SimDashboard for every mechanism kind
+
+Alongside the game cockpit, the example now also serves a generic **Mechanism Lab** at [localhost:5806](http://localhost:5806). It is driven by `MechanismShowcase`, which builds one of every Catalyst mechanism kind (linear, rotational, roller, flywheel, turret, claw, differential wrist, winch, and pneumatic) on CAN IDs 30 to 39 and registers each one with a `SimDashboard`. Every mechanism gets a live, fitting widget you can drive from the browser, and each one runs its own physics simulation. The pneumatic is the exception: a solenoid has no continuous position, so it shows forward / reverse / off state instead.
+
+This runs in simulation only, side by side with the existing game cockpit on [localhost:5805](http://localhost:5805), so you can have both pages open at once.
+
+`MechanismShowcase` is the template for wiring `SimDashboard` to your own robot. Nothing in it is specific to this year's game: register your mechanisms with `dash.add(...)`, chain `slider`, `command`, `button`, and `toggle` controls, call `dash.start()` once, and call `dash.update()` once per loop. The exact same calls work against your real robot's mechanisms, including a team's own `CatalystMechanism` subclass that overrides `describe()`.
+
+```java
+private final SimDashboard dash = new SimDashboard(5806).title("Catalyst Mechanism Lab");
+
+public MechanismShowcase() {
+    dash.add(elevator)
+            .slider("Height (m)", 0.0, 0.60, v -> sched(elevator.goTo(v)))
+            .command("Stow", () -> elevator.goTo("DOWN"))
+            .command("Top", () -> elevator.goTo("UP"));
+
+    dash.add(roller)
+            .command("Intake", roller::intake)
+            .command("Eject", roller::eject)
+            .toggle("Game piece", roller::setSimHasPiece);
+
+    // ... one entry per mechanism kind ...
+
+    dash.start();
+}
+
+public void update() {
+    dash.update();   // call once per loop in sim
+}
+```
+
+---
+
 ## Test Project
 
 For a full integration test project with JUnit tests covering every FrcCatalyst component, see:
