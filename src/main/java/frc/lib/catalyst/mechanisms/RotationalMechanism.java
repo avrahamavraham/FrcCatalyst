@@ -517,6 +517,16 @@ public class RotationalMechanism extends CatalystMechanism {
         return motor;
     }
 
+    @Override
+    public MechanismView describe() {
+        return MechanismView.of(name, "rotational")
+                .value(getAngle(), "deg").setpoint(getSetpoint())
+                .range(config.minAngle, config.maxAngle)
+                .velocity(getAngularVelocity()).current(getCurrent())
+                .extra("hardStop", isHardStopPressed())
+                .build();
+    }
+
     public CatalystMotor getMotor() {
         return motor;
     }

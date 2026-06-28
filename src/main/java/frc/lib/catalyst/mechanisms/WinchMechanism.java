@@ -1,6 +1,11 @@
 package frc.lib.catalyst.mechanisms;
 
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.system.plant.DCMotor;
+import edu.wpi.first.math.system.plant.LinearSystemId;
+import edu.wpi.first.wpilibj.RobotBase;
+import edu.wpi.first.wpilibj.simulation.DCMotorSim;
+import edu.wpi.first.wpilibj.simulation.ElevatorSim;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.lib.catalyst.hardware.CatalystMotor;
@@ -39,6 +44,11 @@ public class WinchMechanism extends CatalystMechanism {
 
     private final WinchMechanismInputs inputs = new WinchMechanismInputs();
     private boolean hasBeenZeroed = false;
+
+    // Simulation (created only in sim). Linear model when a spool radius is set,
+    // otherwise a rotational model so rotation-only winches still move in sim.
+    private ElevatorSim elevatorSim;
+    private DCMotorSim rotationSim;
 
     public WinchMechanism(Config config) {
         super(config.name);
@@ -81,6 +91,53 @@ public class WinchMechanism extends CatalystMechanism {
         if (secondMotor != null) {
             HealthMonitor.standardMotorChecks(name, "Sec", secondMotor, config.statorCurrentLimit, 70);
         }
+
+        if (RobotBase.isSimulation()) {
+            DCMotor model = DCMotor.getKrakenX60(secondMotor != null ? 2 : 1);
+            if (config.spoolRadius > 0) {
+                elevatorSim = new ElevatorSim(model, config.gearRatio, config.loadMass,
+                        config.spoolRadius, config.minPosition, config.maxPosition,
+                        false, config.minPosition);
+            } else {
+                rotationSim = new DCMotorSim(
+                        LinearSystemId.createDCMotorSystem(model, 0.01, config.gearRatio), model);
+            }
+        }
+    }
+
+    // --- Simulation ---
+
+    @Override
+    public void simulationPeriodic() {
+        if (elevatorSim != null) {
+            var simState = motor.getTalonFX().getSimState();
+            elevatorSim.setInputVoltage(simState.getMotorVoltage());
+            elevatorSim.update(0.02);
+            double circ = 2.0 * Math.PI * config.spoolRadius;
+            double spoolRot = elevatorSim.getPositionMeters() / circ;
+            double spoolRps = elevatorSim.getVelocityMetersPerSecond() / circ;
+            applyRotorSim(spoolRot, spoolRps);
+        } else if (rotationSim != null) {
+            var simState = motor.getTalonFX().getSimState();
+            rotationSim.setInputVoltage(simState.getMotorVoltage());
+            rotationSim.update(0.02);
+            applyRotorSim(rotationSim.getAngularPositionRotations(),
+                    rotationSim.getAngularVelocityRPM() / 60.0);
+        }
+    }
+
+    /** Push a spool position (rotations) and velocity (rps) onto both motors' rotor sim state. */
+    private void applyRotorSim(double spoolRotations, double spoolRps) {
+        double rotorPos = spoolRotations * config.gearRatio;
+        double rotorVel = spoolRps * config.gearRatio;
+        var simState = motor.getTalonFX().getSimState();
+        simState.setRawRotorPosition(rotorPos);
+        simState.setRotorVelocity(rotorVel);
+        if (secondMotor != null) {
+            var s2 = secondMotor.getTalonFX().getSimState();
+            s2.setRawRotorPosition(rotorPos);
+            s2.setRotorVelocity(rotorVel);
+        }
     }
 
     // --- Conversions ---
@@ -110,6 +167,25 @@ public class WinchMechanism extends CatalystMechanism {
     /** Check if fully retracted. */
     public boolean isFullyRetracted() {
         return getPosition() <= config.minPosition + 0.01;
+    }
+
+    /** Min travel (meters if a spool radius is set, otherwise rotations). */
+    public double getMinPosition() { return config.minPosition; }
+
+    /** Max travel (meters if a spool radius is set, otherwise rotations). */
+    public double getMaxPosition() { return config.maxPosition; }
+
+    @Override
+    public MechanismView describe() {
+        String unit = config.spoolRadius > 0 ? "m" : "rot";
+        return MechanismView.of(name, "winch")
+                .value(getPosition(), unit)
+                .range(config.minPosition, config.maxPosition)
+                .current(getCurrent())
+                .extra("extended", isFullyExtended())
+                .extra("retracted", isFullyRetracted())
+                .extra("dualMotor", secondMotor != null)
+                .build();
     }
 
     // --- Triggers ---
@@ -262,6 +338,7 @@ public class WinchMechanism extends CatalystMechanism {
         final double statorCurrentLimit;
         final double extendSpeed;
         final double retractSpeed;
+        final double loadMass;
 
         private Config(Builder b) {
             this.name = b.name;
@@ -278,6 +355,7 @@ public class WinchMechanism extends CatalystMechanism {
             this.statorCurrentLimit = b.statorCurrentLimit;
             this.extendSpeed = b.extendSpeed;
             this.retractSpeed = b.retractSpeed;
+            this.loadMass = b.loadMass;
         }
 
         public static Builder builder() {
@@ -299,6 +377,7 @@ public class WinchMechanism extends CatalystMechanism {
             private double statorCurrentLimit = 120;
             private double extendSpeed = 0.8;
             private double retractSpeed = -1.0;
+            private double loadMass = 6.0; // kg, used only for simulation
 
             public Builder name(String name) { this.name = name; return this; }
             public Builder motor(int canId) { this.motorCanId = canId; return this; }
@@ -329,6 +408,9 @@ public class WinchMechanism extends CatalystMechanism {
 
             /** Retract speed as duty cycle [-1, 0]. */
             public Builder retractSpeed(double speed) { this.retractSpeed = speed; return this; }
+
+            /** Load mass in kg the winch lifts. Used only for the simulation model. */
+            public Builder loadMass(double kg) { this.loadMass = kg; return this; }
 
             public Config build() {
                 if (motorCanId == 0) {

@@ -5,6 +5,50 @@ All notable changes to FrcCatalyst are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.0-rc3] — 2026-06-28 — Configurable simulation
+
+The simulation is no longer tied to one robot. A new generic dashboard renders
+and drives **any** mechanism you register, and the four mechanisms that used to
+sit motionless in sim now run real physics. **Backward compatible** — only
+additions, with sensible defaults for the new sim-only config fields.
+
+### Added — `SimDashboard`, a configurable mechanism cockpit
+- New `frc.lib.catalyst.sim.SimDashboard`: register any `CatalystMechanism` with
+  `dash.add(mechanism)` and it auto-discovers the mechanism's shape and renders a
+  fitting live widget — a travel bar for a linear actuator, a speed readout for a
+  flywheel, a state chip for a claw, an angle gauge for a turret. Works against a
+  team's own `CatalystMechanism` subclass too, with no dashboard changes.
+- Opt-in driving per mechanism: `.button(...)`, `.command(...)`, `.slider(...)`
+  and `.toggle(...)`. Browser input is **never** run on the HTTP thread — it is
+  queued and executed inside `update()` on the main/scheduler thread, so it is
+  always safe to schedule Commands or mutate robot state from a control.
+- **Real-robot safe**: `start()` and `update()` no-op off simulation, so the
+  same calls can live in shared robot code unguarded. Default port 5805,
+  configurable.
+
+### Added — every mechanism describes itself
+- New `CatalystMechanism.describe()` returns a uniform `MechanismView` snapshot
+  (value, unit, setpoint, range, velocity, current, plus kind-specific extras).
+  A base default is provided, and all nine built-in mechanisms override it, so
+  the generic dashboard can render and drive them without knowing their type.
+
+### Added — physics for the mechanisms that used to be inert in sim
+- `RollerMechanism`, `ClawMechanism`, `WinchMechanism` and
+  `DifferentialWristMechanism` now have real `simulationPeriodic()` models
+  (`FlywheelSim` / `DCMotorSim` / `ElevatorSim`), so they actually move, track
+  setpoints and draw current in simulation like the other mechanisms already did.
+- `RollerMechanism.setSimHasPiece(boolean)` and `ClawMechanism.setSimHasPiece(boolean)`
+  let you force the simulated game-piece state to exercise handoff logic without
+  a physical sensor (sim only — ignored on a real robot).
+- New **sim-only** config fields, additive with defaults: `WinchMechanism`
+  `loadMass(kg)` and `DifferentialWristMechanism` `momentOfInertia(kg·m²)`.
+
+### Added — `MechanismShowcase` example
+- The example now serves a second cockpit at
+  [localhost:5806](http://localhost:5806) that builds one of **every** mechanism
+  kind and drives each through `SimDashboard` — a working template for wiring the
+  dashboard to your own robot, alongside the existing game cockpit on 5805.
+
 ## [1.0.0-rc2] — 2026-06-19
 
 ### Added — `AllianceFlipUtil`

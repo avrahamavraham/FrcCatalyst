@@ -542,6 +542,18 @@ public class LinearMechanism extends CatalystMechanism {
         }
     }
 
+    @Override
+    public MechanismView describe() {
+        return MechanismView.of(name, "linear")
+                .value(getPosition(), "m").setpoint(getSetpoint())
+                .range(config.minPosition, config.maxPosition)
+                .velocity(getVelocity()).current(getCurrent())
+                .extra("zeroed", hasBeenZeroed())
+                .extra("fwdLimit", isForwardLimitPressed())
+                .extra("revLimit", isReverseLimitPressed())
+                .build();
+    }
+
     /** Get the underlying motor for advanced use. */
     public CatalystMotor getMotor() {
         return motor;

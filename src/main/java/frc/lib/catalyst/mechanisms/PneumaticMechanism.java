@@ -128,6 +128,22 @@ public class PneumaticMechanism extends CatalystMechanism {
         return compressor.getPressure();
     }
 
+    @Override
+    public MechanismView describe() {
+        // Solenoids have no continuous position; the value carries pressure when
+        // an analog sensor is present, and the commanded state rides in extras.
+        MechanismView.Builder view = MechanismView.of(name, "pneumatic");
+        double psi = getPressure();
+        if (psi >= 0) {
+            view.value(psi, "psi");
+        }
+        return view
+                .extra("state", getState().name())
+                .extra("forward", isForward())
+                .extra("reverse", isReverse())
+                .build();
+    }
+
     /**
      * Seconds since the last state transition.
      *

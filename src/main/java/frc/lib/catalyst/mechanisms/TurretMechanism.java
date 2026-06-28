@@ -323,6 +323,17 @@ public class TurretMechanism extends CatalystMechanism {
                 && Math.abs(aimErrorDeg(solution, robotHeadingDeg)) <= toleranceDeg;
     }
 
+    @Override
+    public MechanismView describe() {
+        return MechanismView.of(name, "turret")
+                .value(getAngle(), "deg").setpoint(getSetpoint())
+                .range(config.minAngle, config.maxAngle)
+                .velocity(getAngularVelocity()).current(motor.getStatorCurrent())
+                .extra("unwrapping", isUnwrapping())
+                .extra("atSetpoint", atSetpoint())
+                .build();
+    }
+
     public CatalystMotor getMotor() {
         return motor;
     }

@@ -1,8 +1,12 @@
 package frc.lib.catalyst.mechanisms;
 
 import com.ctre.phoenix6.signals.GravityTypeValue;
+import edu.wpi.first.math.system.plant.DCMotor;
+import edu.wpi.first.math.system.plant.LinearSystemId;
 import edu.wpi.first.wpilibj.DigitalInput;
+import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.simulation.FlywheelSim;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.lib.catalyst.hardware.CatalystMotor;
@@ -50,6 +54,10 @@ public class RollerMechanism extends CatalystMechanism {
 
     private final RollerMechanismInputs inputs = new RollerMechanismInputs();
 
+    // Simulation (null on a real robot). A roller has no positional state; we
+    // model spin-up so the motor velocity + current are realistic in sim.
+    private FlywheelSim sim;
+
     public RollerMechanism(Config config) {
         super(config.name);
         this.config = config;
@@ -74,6 +82,33 @@ public class RollerMechanism extends CatalystMechanism {
         }
 
         HealthMonitor.standardMotorChecks(name, motor, config.statorCurrentLimit, 70);
+
+        if (RobotBase.isSimulation()) {
+            // Rollers have no gear/MOI config; a light direct-drive Kraken model
+            // is plenty to make the wheel spin and draw current in sim.
+            DCMotor model = DCMotor.getKrakenX60(1 + config.followers.size());
+            sim = new FlywheelSim(LinearSystemId.createFlywheelSystem(model, 0.0008, 1.0), model);
+        }
+    }
+
+    @Override
+    public void simulationPeriodic() {
+        if (sim != null) {
+            var simState = motor.getTalonFX().getSimState();
+            sim.setInput(simState.getMotorVoltage());
+            sim.update(0.02);
+            simState.setRotorVelocity(sim.getAngularVelocityRPM() / 60.0);
+        }
+    }
+
+    @Override
+    public MechanismView describe() {
+        return MechanismView.of(name, "roller")
+                .value(getSpeed(), "frac")
+                .velocity(motor.getVelocity())
+                .current(getCurrent())
+                .extra("hasPiece", hasPiece())
+                .build();
     }
 
     // --- Getters ---
@@ -84,6 +119,17 @@ public class RollerMechanism extends CatalystMechanism {
             return !beamBreak.get(); // beam break is normally open, false = broken = has piece
         }
         return hasPiece;
+    }
+
+    /**
+     * Force the simulated game-piece state. Sim only — ignored on a real robot,
+     * where detection comes from the beam break or stall logic. Lets the
+     * dashboard demo intake/handoff sequencing without a physical sensor.
+     */
+    public void setSimHasPiece(boolean present) {
+        if (RobotBase.isSimulation()) {
+            hasPiece = present;
+        }
     }
 
     /** Trigger that fires when a game piece is detected. */

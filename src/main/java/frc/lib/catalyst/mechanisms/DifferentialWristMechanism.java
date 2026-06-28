@@ -8,6 +8,10 @@ import com.ctre.phoenix6.controls.NeutralOut;
 import com.ctre.phoenix6.signals.DifferentialSensorSourceValue;
 import com.ctre.phoenix6.signals.MotorAlignmentValue;
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.system.plant.DCMotor;
+import edu.wpi.first.math.system.plant.LinearSystemId;
+import edu.wpi.first.wpilibj.RobotBase;
+import edu.wpi.first.wpilibj.simulation.DCMotorSim;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.lib.catalyst.hardware.CatalystMotor;
@@ -78,6 +82,11 @@ public class DifferentialWristMechanism extends CatalystMechanism {
     private double pitchSetpointDegrees = 0;
     private double rollSetpointDegrees = 0;
     private boolean hasBeenZeroed = false;
+
+    // Simulation (created only in sim). One model per physical motor, each fed
+    // its own applied voltage; pitch/roll then derive from the two rotor states.
+    private DCMotorSim leftSim;
+    private DCMotorSim rightSim;
 
     private final DifferentialWristMechanismInputs inputs =
             new DifferentialWristMechanismInputs();
@@ -168,6 +177,33 @@ public class DifferentialWristMechanism extends CatalystMechanism {
 
         HealthMonitor.standardMotorChecks(name, "Left", leftMotor, config.statorCurrentLimit, 70);
         HealthMonitor.standardMotorChecks(name, "Right", rightMotor, config.statorCurrentLimit, 70);
+
+        if (RobotBase.isSimulation()) {
+            DCMotor model = DCMotor.getKrakenX60(1);
+            leftSim = new DCMotorSim(
+                    LinearSystemId.createDCMotorSystem(model, config.momentOfInertia, config.gearRatio), model);
+            rightSim = new DCMotorSim(
+                    LinearSystemId.createDCMotorSystem(model, config.momentOfInertia, config.gearRatio), model);
+        }
+    }
+
+    // --- Simulation ---
+
+    @Override
+    public void simulationPeriodic() {
+        if (leftSim == null || rightSim == null) {
+            return;
+        }
+        stepMotorSim(leftMotor, leftSim);
+        stepMotorSim(rightMotor, rightSim);
+    }
+
+    private void stepMotorSim(CatalystMotor motor, DCMotorSim sim) {
+        var simState = motor.getTalonFX().getSimState();
+        sim.setInputVoltage(simState.getMotorVoltage());
+        sim.update(0.02);
+        simState.setRawRotorPosition(sim.getAngularPositionRotations() * config.gearRatio);
+        simState.setRotorVelocity(sim.getAngularVelocityRPM() / 60.0 * config.gearRatio);
     }
 
     // --- Conversions ---
@@ -350,6 +386,37 @@ public class DifferentialWristMechanism extends CatalystMechanism {
     public CatalystMotor getLeftMotor() { return leftMotor; }
     public CatalystMotor getRightMotor() { return rightMotor; }
 
+    /** Combined stator current of both motors in amps. */
+    public double getCurrent() {
+        return leftMotor.getStatorCurrent() + rightMotor.getStatorCurrent();
+    }
+
+    /** Pitch axis software limits in degrees. */
+    public double getMinPitch() { return config.minPitch; }
+    public double getMaxPitch() { return config.maxPitch; }
+
+    /** Roll axis software limits in degrees. */
+    public double getMinRoll() { return config.minRoll; }
+    public double getMaxRoll() { return config.maxRoll; }
+
+    @Override
+    public MechanismView describe() {
+        // Primary axis shown is pitch; roll travels in the extras so a single
+        // widget still conveys both degrees of freedom.
+        return MechanismView.of(name, "diffwrist")
+                .value(getPitch(), "deg")
+                .setpoint(getPitchSetpoint())
+                .range(config.minPitch, config.maxPitch)
+                .velocity(getPitchVelocity())
+                .current(getCurrent())
+                .extra("roll", getRoll())
+                .extra("rollSet", getRollSetpoint())
+                .extra("rollMin", config.minRoll)
+                .extra("rollMax", config.maxRoll)
+                .extra("atSetpoint", atSetpoint())
+                .build();
+    }
+
     /** Rumble when both axes settle on their setpoints. */
     @Override
     public void bindRumble(RumbleEvents events,
@@ -381,6 +448,7 @@ public class DifferentialWristMechanism extends CatalystMechanism {
         final double motionMagicAcceleration;
         final double motionMagicJerk;
         final double toleranceDegrees;
+        final double momentOfInertia;
         final Map<String, double[]> namedPositions;
 
         private Config(Builder b) {
@@ -410,6 +478,7 @@ public class DifferentialWristMechanism extends CatalystMechanism {
             this.motionMagicAcceleration = b.motionMagicAcceleration;
             this.motionMagicJerk = b.motionMagicJerk;
             this.toleranceDegrees = b.toleranceDegrees;
+            this.momentOfInertia = b.momentOfInertia;
             this.namedPositions = Map.copyOf(b.namedPositions);
         }
 
@@ -437,6 +506,7 @@ public class DifferentialWristMechanism extends CatalystMechanism {
             private double motionMagicAcceleration = 0;
             private double motionMagicJerk = 0;
             private double toleranceDegrees = 2.0;
+            private double momentOfInertia = 0.004; // kg·m^2 per axis, used only for simulation
             private final Map<String, double[]> namedPositions = new HashMap<>();
 
             public Builder name(String name) { this.name = name; return this; }
@@ -516,6 +586,12 @@ public class DifferentialWristMechanism extends CatalystMechanism {
 
             /** Default tolerance for {@link DifferentialWristMechanism#atSetpoint()} in degrees. */
             public Builder tolerance(double degrees) { this.toleranceDegrees = degrees; return this; }
+
+            /** Per-axis moment of inertia in kg·m^2. Used only for the simulation model. */
+            public Builder momentOfInertia(double kgMetersSquared) {
+                this.momentOfInertia = kgMetersSquared;
+                return this;
+            }
 
             /** Add a named (pitch, roll) preset in degrees. */
             public Builder position(String name, double pitchDegrees, double rollDegrees) {

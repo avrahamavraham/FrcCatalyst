@@ -277,6 +277,10 @@ public class RobotContainer {
             () -> new Pose2d(poseX, poseY, new Rotation2d(heading)));
     private volatile String stateJson = "{}";
     private SimCockpit cockpit;
+
+    // Generic, configurable mechanism cockpit (localhost:5806) — drives one of
+    // every Catalyst mechanism kind, proving the sim adapts to any mechanism.
+    private MechanismShowcase mechanismLab;
     private boolean autoEnabledOnce = false;
     private double simClock = 0;
     private double matchStart = 0;
@@ -300,6 +304,7 @@ public class RobotContainer {
                     () -> pendingAuto = true,
                     pendingFault::set,
                     pendingToggle::set);
+            mechanismLab = new MechanismShowcase();
         }
     }
 
@@ -358,6 +363,12 @@ public class RobotContainer {
             autoEnabledOnce = true;
         }
         simClock += 0.02;
+
+        // Pump the generic mechanism dashboard (drains its queued commands +
+        // snapshots state on this, the main thread).
+        if (mechanismLab != null) {
+            mechanismLab.update();
+        }
 
         Boolean en = pendingEnable.getAndSet(null);
         if (en != null) {

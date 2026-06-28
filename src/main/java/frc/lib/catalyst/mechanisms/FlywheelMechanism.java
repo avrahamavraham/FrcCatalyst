@@ -358,6 +358,18 @@ public class FlywheelMechanism extends CatalystMechanism {
         }
     }
 
+    @Override
+    public MechanismView describe() {
+        var b = MechanismView.of(name, "flywheel")
+                .value(getVelocity(), "rps").setpoint(getSetpoint())
+                .velocity(getVelocity()).current(primaryMotor.getStatorCurrent())
+                .extra("atSpeed", atSpeed());
+        if (secondaryMotor != null) {
+            b.extra("secondaryVel", getSecondaryVelocity()).extra("secondarySet", getSecondarySetpoint());
+        }
+        return b.build();
+    }
+
     public CatalystMotor getPrimaryMotor() { return primaryMotor; }
 
     @Override

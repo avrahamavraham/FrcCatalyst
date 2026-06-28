@@ -87,6 +87,18 @@ public abstract class CatalystMechanism extends SubsystemBase {
         return name;
     }
 
+    /**
+     * A uniform snapshot of this mechanism's live state for the generic
+     * simulation dashboard ({@code frc.lib.catalyst.sim.SimDashboard}).
+     * Subclasses override this to report their value, setpoint, range, etc.
+     * with the right units. The base default reports a "generic" widget — a
+     * user's custom mechanism still shows up, it just won't get a type-specific
+     * gauge until it overrides this.
+     */
+    public MechanismView describe() {
+        return MechanismView.of(name, "generic").build();
+    }
+
     /** Command to stop the mechanism. */
     public Command stopCommand() {
         return runOnce(this::stop).withName(name + ".Stop");

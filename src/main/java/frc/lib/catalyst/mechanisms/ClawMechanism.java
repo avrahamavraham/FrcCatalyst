@@ -1,7 +1,11 @@
 package frc.lib.catalyst.mechanisms;
 
+import edu.wpi.first.math.system.plant.DCMotor;
+import edu.wpi.first.math.system.plant.LinearSystemId;
 import edu.wpi.first.wpilibj.DigitalInput;
+import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.simulation.DCMotorSim;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.lib.catalyst.hardware.CatalystMotor;
@@ -47,6 +51,7 @@ public class ClawMechanism extends CatalystMechanism {
     private final Config config;
     private final CatalystMotor motor;
     private final DigitalInput beamBreak;
+    private DCMotorSim sim;            // simulation (null on a real robot)
 
     private final Timer stallTimer = new Timer();
     private boolean stallTimerStarted = false;
@@ -113,6 +118,42 @@ public class ClawMechanism extends CatalystMechanism {
                     .clearAfter(5.0)
                     .register();
         }
+
+        if (RobotBase.isSimulation()) {
+            DCMotor model = DCMotor.getKrakenX60(1 + config.followers.size());
+            sim = new DCMotorSim(LinearSystemId.createDCMotorSystem(model, 0.002, 1.0), model);
+        }
+    }
+
+    @Override
+    public void simulationPeriodic() {
+        if (sim != null) {
+            var simState = motor.getTalonFX().getSimState();
+            sim.setInputVoltage(simState.getMotorVoltage());
+            sim.update(0.02);
+            simState.setRawRotorPosition(sim.getAngularPositionRotations());
+            simState.setRotorVelocity(sim.getAngularVelocityRPM() / 60.0);
+        }
+    }
+
+    /**
+     * Sim-only: place or remove a game piece in the gripper. Drives
+     * {@link #hasPiece()} (a DCMotorSim won't naturally stall against a virtual
+     * object), so a dashboard toggle can simulate intaking/scoring.
+     */
+    public void setSimHasPiece(boolean present) {
+        if (RobotBase.isSimulation()) {
+            this.hasPiece = present;
+        }
+    }
+
+    @Override
+    public MechanismView describe() {
+        return MechanismView.of(name, "claw")
+                .current(getCurrent())
+                .extra("state", getGripState())
+                .extra("hasPiece", hasPiece())
+                .build();
     }
 
     // --- Getters ---
